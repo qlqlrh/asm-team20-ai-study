@@ -4,6 +4,9 @@
 .LSOverride
 Thumbs.db
 
+# Agent tooling state
+.omc/
+
 # Python bytecode / cache
 __pycache__/
 *.py[cod]
