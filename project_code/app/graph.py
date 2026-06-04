@@ -1,41 +1,48 @@
+﻿# ========================================
+# Minecraft Guide Agent - LangGraph workflow
+# analyze -> clarify -> retrieve -> respond (5 nodes)
+# clarify: ask follow-up if info insufficient, pass through if sufficient
 # ========================================
-# Minecraft Guide Agent — LangGraph 워크플로우
-# 현재: analyze → retrieve → respond (3노드). 11노드 Agentic Workflow는 후속 이슈.
-# ========================================
-
 from langgraph.graph import StateGraph, START, END
 from app.schemas import AgentState
 from app.agents.query_analyzer import analyze_query
 from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
-
+from app.agents.clarifier import check_and_clarify
+print("[GRAPH] clarifier imported successfully")  # 추가
 
 def route_by_domain(state: AgentState) -> str:
-    """도메인 분류 결과에 따라 다음 노드를 결정한다.
-
-    minecraft → retrieve (위키 검색 후 답변)
-    general / out_of_scope → respond (바로 답변)
-    """
     return "retrieve" if state.get("domain", "minecraft") == "minecraft" else "respond"
 
 
-def create_graph():
-    """Minecraft Guide 워크플로우 그래프를 생성한다."""
-    builder = StateGraph(AgentState)
+def route_by_clarification(state: AgentState) -> str:
+    return "ask" if state.get("need_clarification") else "retrieve"
 
-    # 노드 추가
+
+def ask_clarification(state: AgentState) -> dict:
+    question = state.get("clarification_question", "Could you tell me more?")
+    return {"final_answer": question}
+
+
+def create_graph():
+    builder = StateGraph(AgentState)
     builder.add_node("analyze", analyze_query)
+    builder.add_node("clarify", check_and_clarify)
+    builder.add_node("ask", ask_clarification)
     builder.add_node("retrieve", retrieve_context)
     builder.add_node("respond", generate_answer)
-
-    # 엣지 연결
     builder.add_edge(START, "analyze")
     builder.add_conditional_edges(
         "analyze",
         route_by_domain,
-        {"retrieve": "retrieve", "respond": "respond"},
+        {"retrieve": "clarify", "respond": "respond"},
     )
+    builder.add_conditional_edges(
+        "clarify",
+        route_by_clarification,
+        {"ask": "ask", "retrieve": "retrieve"},
+    )
+    builder.add_edge("ask", END)
     builder.add_edge("retrieve", "respond")
     builder.add_edge("respond", END)
-
     return builder.compile()

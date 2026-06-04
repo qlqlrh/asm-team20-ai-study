@@ -15,12 +15,18 @@ class AgentState(TypedDict):
     final_answer: str
     domain: str
     iteration_count: int
+    need_clarification: bool        # 추가 - kje
+    clarification_question: str     # 추가 - kje
 
 class QueryAnalysis(BaseModel):
     keywords: list[str] = Field(description="keywords")
     domain: Literal["minecraft","general","out_of_scope"] = Field(description="domain")
     intent: str = Field(description="intent")
     status: Literal["success","insufficient"] = Field(description="status")
+
+class ClarificationResult(BaseModel):
+    need_clarification: bool = Field(description="추가 정보가 필요하면 true, 바로 답변 가능하면 false")
+    question: str = Field(default="", description="need_clarification이 true일 때만 작성하는 한국어 되묻기 질문")
 
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
