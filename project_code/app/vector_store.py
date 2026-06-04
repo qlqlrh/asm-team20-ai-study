@@ -1,54 +1,60 @@
-import json
-from pathlib import Path
-from app.core.database import get_chroma_client
-from app.core.embedding import get_embedding_function
+"""Qdrant 기반 벡터 스토어.
 
-COLLECTION_NAME = "medical_knowledge"
+검색 인터페이스(search_documents)는 기존(ChromaDB) 시그니처를 유지하므로
+agents/retrieval.py 등 호출부는 수정 없이 동작한다.
+대량 적재는 scripts/ingest_wiki.py가 담당한다.
+"""
+from qdrant_client import models
 
-
-def _get_collection():
-    """ChromaDB 컬렉션을 가져온다. 없으면 새로 만든다."""
-    client = get_chroma_client()
-    embedding_fn = get_embedding_function()
-    return client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        embedding_function=embedding_fn,
-    )
+from app.core.config import QDRANT_COLLECTION
+from app.core.vector_db import get_qdrant_client
+from app.core.embedding import embed_query, embedding_dim
 
 
-def seed_if_empty():
-    """데이터가 비어 있으면 medical_knowledge.json을 로드하여 벡터 DB에 저장한다."""
-    collection = _get_collection()
-    if collection.count() > 0:
+def _collection_exists() -> bool:
+    client = get_qdrant_client()
+    return QDRANT_COLLECTION in {c.name for c in client.get_collections().collections}
+
+
+def ensure_collection(dim: int | None = None) -> None:
+    """컬렉션이 없으면 생성한다 (Cosine, 차원은 임베딩 모델 기준).
+
+    주의: dim 미지정 시 임베딩 API를 호출하므로 UPSTAGE_API_KEY가 필요하다.
+    """
+    client = get_qdrant_client()
+    if _collection_exists():
         return
-
-    data_path = Path(__file__).parent.parent / "data" / "medical_knowledge.json"
-    if not data_path.exists():
-        return
-
-    with open(data_path, encoding="utf-8") as f:
-        docs = json.load(f)
-
-    collection.add(
-        ids=[d["id"] for d in docs],
-        documents=[f"{d['question']}\n{d['answer']}" for d in docs],
-        metadatas=[{"category": d["category"], "keywords": ",".join(d["keywords"])} for d in docs],
+    client.create_collection(
+        collection_name=QDRANT_COLLECTION,
+        vectors_config=models.VectorParams(
+            size=dim or embedding_dim(),
+            distance=models.Distance.COSINE,
+        ),
     )
 
 
 def search_documents(query: str, n_results: int = 3) -> list[dict]:
-    """query와 유사한 문서를 ChromaDB에서 검색하여 반환한다."""
-    collection = _get_collection()
-    if collection.count() == 0:
-        return []
+    """query와 유사한 문서를 Qdrant에서 검색한다. 반환 형태는 기존과 동일하다.
 
-    results = collection.query(query_texts=[query], n_results=n_results)
+    [{"content": str, "metadata": dict, "distance": float}, ...]
+    (distance에는 Qdrant 유사도 score가 담긴다 — 높을수록 유사)
+    """
+    if not _collection_exists():
+        return []
+    client = get_qdrant_client()
+    vector = embed_query(query)
+    hits = client.query_points(
+        collection_name=QDRANT_COLLECTION,
+        query=vector,
+        limit=n_results,
+        with_payload=True,
+    ).points
     documents = []
-    if results and results["documents"]:
-        for i, doc in enumerate(results["documents"][0]):
-            documents.append({
-                "content": doc,
-                "metadata": results["metadatas"][0][i] if results["metadatas"] else {},
-                "distance": results["distances"][0][i] if results["distances"] else None,
-            })
+    for h in hits:
+        payload = h.payload or {}
+        documents.append({
+            "content": payload.get("content", ""),
+            "metadata": {k: v for k, v in payload.items() if k != "content"},
+            "distance": h.score,
+        })
     return documents
