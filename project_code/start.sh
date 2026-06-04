@@ -4,6 +4,6 @@ if [ ! -f .env ]; then echo ".env 파일이 없습니다. .env.example을 참고
 uv sync
 uv run uvicorn app.main:app --host 0.0.0.0 --port 8001 &
 sleep 3
-uv run streamlit run frontend/ui.py --server.port 8002 &
+uv run streamlit run frontend/ui.py --server.port 8002 --server.headless true --browser.gatherUsageStats false &
 echo 'Backend: http://localhost:8001 | Frontend: http://localhost:8002'
 wait
