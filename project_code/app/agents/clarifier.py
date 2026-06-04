@@ -18,22 +18,12 @@ CLARIFIER_SYSTEM = """당신은 마인크래프트 초보자 가이드 챗봇입
 - 사용자가 이미 이전 질문에 답하며 현재 상황을 설명한 경우"""
 
 
-def _already_answered_clarification(history_text: str) -> bool:
-    """직전 가이드 발화가 질문(?)으로 끝나면, 사용자가 이미 답변한 것으로 간주해 재질문을 막는다."""
-    if not history_text:
-        return False
-    guide_lines = [
-        l.strip() for l in history_text.strip().split("\n")
-        if l.strip().startswith("가이드:")
-    ]
-    return bool(guide_lines) and guide_lines[-1].rstrip().endswith("?")
-
-
 def check_and_clarify(state: AgentState) -> dict:
     history = state.get("history_text", "")
 
-    # 직전 턴에서 이미 되묻기를 했으면 스킵 → 루프 방지
-    if _already_answered_clarification(history):
+    # 직전 턴이 실제 '되묻기'였으면 스킵 → 무한 되묻기 방지.
+    # (되묻기 문구가 '?'로 끝나지 않는 경우가 많아, 텍스트가 아니라 상태로 판정한다.)
+    if state.get("prev_was_clarification"):
         logger.warning("CLARIFIER: 직전 턴 되묻기 감지 → 스킵")
         return {"need_clarification": False, "clarification_question": ""}
 

@@ -1,4 +1,4 @@
-﻿# ========================================
+# ========================================
 # Minecraft Guide Agent - LangGraph workflow
 # analyze -> clarify -> retrieve -> respond (5 nodes)
 # clarify: ask follow-up if info insufficient, pass through if sufficient
@@ -9,7 +9,6 @@ from app.agents.query_analyzer import analyze_query
 from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
-print("[GRAPH] clarifier imported successfully")  # 추가
 
 def route_by_domain(state: AgentState) -> str:
     return "retrieve" if state.get("domain", "minecraft") == "minecraft" else "respond"

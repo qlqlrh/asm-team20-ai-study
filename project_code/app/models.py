@@ -41,7 +41,7 @@ class Message(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     session_id: Mapped[int] = mapped_column(ForeignKey("chat_sessions.id"), index=True)
-    role: Mapped[str] = mapped_column(String(16))  # 'user' | 'assistant'
+    role: Mapped[str] = mapped_column(String(16))  # 'user' | 'assistant' | 'clarification'(내부용)
     content: Mapped[str] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
