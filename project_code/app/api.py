@@ -1,4 +1,4 @@
-﻿import json
+import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
