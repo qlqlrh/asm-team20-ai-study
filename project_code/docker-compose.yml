@@ -22,7 +22,9 @@ services:
   api:
     build: {context: ., dockerfile: Dockerfile.api}
     ports: ['8001:8001']
-    env_file: [.env]
+    env_file:
+      - path: .env
+        required: false
     # 컨테이너 내부에서는 서비스명으로 접속 (.env의 localhost 값을 덮어씀)
     environment:
       - DATABASE_URL=mysql+pymysql://app:app@mysql:3306/minecraft
