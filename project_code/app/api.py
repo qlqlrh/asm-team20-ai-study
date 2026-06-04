@@ -1,8 +1,7 @@
-import json
-from fastapi import APIRouter
+﻿import json
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
-
 from app.schemas import ChatRequest, ChatResponse, StreamEvent
 from app.graph import create_graph
 from app.core.database import SessionLocal
@@ -10,12 +9,10 @@ from app import repositories
 
 router = APIRouter()
 graph = create_graph()
-
-HISTORY_TURNS = 6  # 직전 대화에서 불러올 메시지 수
+HISTORY_TURNS = 6
 
 
 def build_initial_state(message: str, history_text: str = "") -> dict:
-    """사용자 메시지와 직전 대화 맥락으로 그래프 초기 상태를 생성한다."""
     return {
         "messages": [HumanMessage(content=message)],
         "query": message,
@@ -25,11 +22,12 @@ def build_initial_state(message: str, history_text: str = "") -> dict:
         "final_answer": "",
         "domain": "",
         "iteration_count": 0,
+        "need_clarification": False,
+        "clarification_question": "",
     }
 
 
 def _load_history_text(thread_id: str, limit: int = HISTORY_TURNS) -> str:
-    """직전 대화 맥락을 텍스트로 불러온다. 실패해도 빈 문자열(응답을 막지 않음)."""
     try:
         db = SessionLocal()
         try:
@@ -45,7 +43,6 @@ def _load_history_text(thread_id: str, limit: int = HISTORY_TURNS) -> str:
 
 
 def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
-    """세션을 보장하고 user/assistant 메시지를 저장한다 (best-effort)."""
     try:
         db = SessionLocal()
         try:
@@ -60,7 +57,6 @@ def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
 
 @router.post("/chat/sync", response_model=ChatResponse)
 async def chat_sync(request: ChatRequest):
-    """동기 방식으로 전체 응답을 한 번에 반환한다."""
     history = _load_history_text(request.thread_id)
     result = await graph.ainvoke(build_initial_state(request.message, history))
     answer = result.get("final_answer", "")
@@ -70,28 +66,91 @@ async def chat_sync(request: ChatRequest):
 
 @router.post("/chat")
 async def chat_stream(request: ChatRequest):
-    """SSE 스트리밍으로 각 노드의 처리 과정을 실시간 전송한다."""
     history = _load_history_text(request.thread_id)
 
     async def gen():
+        final_answer = ""
+        domain = ""
+        sources: list[str] = []
+
         async for event in graph.astream_events(
             build_initial_state(request.message, history), version="v2"
         ):
             kind = event.get("event", "")
-            if kind == "on_chain_end" and event.get("name") in ("analyze", "retrieve", "respond"):
-                node_name = event["name"]
-                node_output = event.get("data", {}).get("output", {})
-                sse = StreamEvent(event="node", node=node_name, data=json.dumps(node_output, ensure_ascii=False, default=str))
-                yield f"data: {sse.model_dump_json()}\n\n"
+            name = event.get("name", "")
 
-        # 최종 결과
-        result = await graph.ainvoke(build_initial_state(request.message, history))
-        answer = result.get("final_answer", "")
-        _save_turn(request.thread_id, request.message, answer)
-        done = StreamEvent(
-            event="done",
-            data=json.dumps({"answer": answer, "domain": result.get("domain", "")}, ensure_ascii=False),
-        )
-        yield f"data: {done.model_dump_json()}\n\n"
+            # 노드 완료 → 진행 상황 이벤트 전송
+            if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "respond", "ask"):
+                output = event.get("data", {}).get("output", {})
+
+                if name == "analyze":
+                    domain = output.get("domain", "")
+                elif name == "retrieve":
+                    results = output.get("search_results", [])
+                    sources = list({
+                        r.get("metadata", {}).get("title", "")
+                        for r in results
+                        if r.get("metadata", {}).get("title")
+                    })
+                elif name in ("respond", "ask"):
+                    final_answer = output.get("final_answer", final_answer)
+
+                yield f"data: {StreamEvent(event='node', node=name, data=json.dumps(output, ensure_ascii=False, default=str)).model_dump_json()}\n\n"
+
+            # LLM 토큰 스트리밍 (respond 노드에서만)
+            elif kind == "on_chat_model_stream":
+                if event.get("metadata", {}).get("langgraph_node") == "respond":
+                    chunk = event.get("data", {}).get("chunk")
+                    if chunk and hasattr(chunk, "content") and chunk.content:
+                        yield f"data: {StreamEvent(event='token', data=chunk.content).model_dump_json()}\n\n"
+
+        _save_turn(request.thread_id, request.message, final_answer)
+        done_payload = {"answer": final_answer, "domain": domain, "sources": sources}
+        yield f"data: {StreamEvent(event='done', data=json.dumps(done_payload, ensure_ascii=False)).model_dump_json()}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
+
+
+@router.get("/sessions")
+def get_sessions():
+    """최근 대화 목록을 반환한다 (미리보기: 첫 번째 사용자 발화)."""
+    db = SessionLocal()
+    try:
+        sessions = repositories.list_sessions(db)
+        return [
+            {
+                "thread_id": s.thread_id,
+                "preview": preview,
+                "created_at": s.created_at.isoformat(),
+            }
+            for s, preview in sessions
+        ]
+    finally:
+        db.close()
+
+
+@router.get("/sessions/{thread_id}/messages")
+def get_session_messages(thread_id: str):
+    """특정 세션의 전체 메시지를 반환한다."""
+    db = SessionLocal()
+    try:
+        session = repositories.get_session_by_thread(db, thread_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        msgs = repositories.get_recent_messages(db, session.id, limit=100)
+        return [{"role": m.role, "content": m.content} for m in msgs]
+    finally:
+        db.close()
+
+
+@router.delete("/sessions/{thread_id}")
+def delete_session(thread_id: str):
+    """세션과 관련 메시지를 삭제한다."""
+    db = SessionLocal()
+    try:
+        ok = repositories.delete_session(db, thread_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Session not found")
+        return {"deleted": thread_id}
+    finally:
+        db.close()

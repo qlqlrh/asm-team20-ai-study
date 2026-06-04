@@ -34,8 +34,8 @@ def generate_answer(state: AgentState) -> dict:
         ])
         return {"final_answer": r.content, "iteration_count": iteration}
 
-    # 마인크래프트 질문 — 위키 검색 결과 기반 코칭 (환각을 줄이려 낮은 온도)
-    llm = get_llm(temperature=0.2)
+    # 마인크래프트 질문 — streaming=True로 astream_events에서 토큰 캡처 가능
+    llm = get_llm(temperature=0.2, streaming=True)
     results = state.get("search_results", [])
     parts = [
         f"[{i+1}] ({doc.get('metadata', {}).get('title', '')})\n{doc.get('content', '')}"
