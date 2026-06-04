@@ -27,3 +27,12 @@ dependencies = [
     "langchain-upstage>=0.3.0",
     "langgraph>=0.2.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
