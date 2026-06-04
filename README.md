@@ -31,6 +31,7 @@ bash start.sh                 # → http://localhost:8002
 | [docs/실행_가이드.md](docs/실행_가이드.md) | 클론 → 로컬 실행 (팀원 온보딩) |
 | [docs/스펙문서.md](docs/스펙문서.md) | 제품 설계·범위·협업 모델 |
 | [docs/구현계획.md](docs/구현계획.md) | 이슈 #5 구현 절차·커밋 분해 |
+| [docs/알려진_이슈.md](docs/알려진_이슈.md) | 현재 알려진 품질 한계·해결 방향 |
 | [project_code/README.md](project_code/README.md) | 앱 내부 구조·API 계약 |
 
 ## 구조
@@ -41,7 +42,8 @@ asm-team20-ai-study/
 ├── docs/              설계·실행 문서
 │   ├── 실행_가이드.md
 │   ├── 스펙문서.md
-│   └── 구현계획.md
+│   ├── 구현계획.md
+│   └── 알려진_이슈.md
 └── project_code/      백엔드 + 검증용 웹뷰 (앱 루트)
 ```
 
