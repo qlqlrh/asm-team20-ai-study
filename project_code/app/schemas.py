@@ -8,6 +8,7 @@ from langchain_core.messages import BaseMessage
 class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], operator.add]
     query: str
+    history_text: str
     query_analysis: dict
     search_results: list[dict]
     final_answer: str

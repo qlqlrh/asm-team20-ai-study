@@ -11,12 +11,15 @@ from app import repositories
 router = APIRouter()
 graph = create_graph()
 
+HISTORY_TURNS = 6  # 직전 대화에서 불러올 메시지 수
 
-def build_initial_state(message: str) -> dict:
-    """사용자 메시지로부터 그래프 초기 상태를 생성한다."""
+
+def build_initial_state(message: str, history_text: str = "") -> dict:
+    """사용자 메시지와 직전 대화 맥락으로 그래프 초기 상태를 생성한다."""
     return {
         "messages": [HumanMessage(content=message)],
         "query": message,
+        "history_text": history_text,
         "query_analysis": {},
         "search_results": [],
         "final_answer": "",
@@ -25,11 +28,24 @@ def build_initial_state(message: str) -> dict:
     }
 
 
-def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
-    """세션을 보장하고 user/assistant 메시지를 저장한다.
+def _load_history_text(thread_id: str, limit: int = HISTORY_TURNS) -> str:
+    """직전 대화 맥락을 텍스트로 불러온다. 실패해도 빈 문자열(응답을 막지 않음)."""
+    try:
+        db = SessionLocal()
+        try:
+            session = repositories.get_or_create_session(db, thread_id)
+            msgs = repositories.get_recent_messages(db, session.id, limit=limit)
+            return "\n".join(
+                f"{'사용자' if m.role == 'user' else '가이드'}: {m.content}" for m in msgs
+            )
+        finally:
+            db.close()
+    except Exception:
+        return ""
 
-    DB 장애가 나도 챗봇 응답은 막지 않도록 best-effort로 처리한다.
-    """
+
+def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
+    """세션을 보장하고 user/assistant 메시지를 저장한다 (best-effort)."""
     try:
         db = SessionLocal()
         try:
@@ -45,7 +61,8 @@ def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
 @router.post("/chat/sync", response_model=ChatResponse)
 async def chat_sync(request: ChatRequest):
     """동기 방식으로 전체 응답을 한 번에 반환한다."""
-    result = await graph.ainvoke(build_initial_state(request.message))
+    history = _load_history_text(request.thread_id)
+    result = await graph.ainvoke(build_initial_state(request.message, history))
     answer = result.get("final_answer", "")
     _save_turn(request.thread_id, request.message, answer)
     return ChatResponse(answer=answer, domain=result.get("domain", ""))
@@ -54,9 +71,11 @@ async def chat_sync(request: ChatRequest):
 @router.post("/chat")
 async def chat_stream(request: ChatRequest):
     """SSE 스트리밍으로 각 노드의 처리 과정을 실시간 전송한다."""
+    history = _load_history_text(request.thread_id)
+
     async def gen():
         async for event in graph.astream_events(
-            build_initial_state(request.message), version="v2"
+            build_initial_state(request.message, history), version="v2"
         ):
             kind = event.get("event", "")
             if kind == "on_chain_end" and event.get("name") in ("analyze", "retrieve", "respond"):
@@ -66,7 +85,7 @@ async def chat_stream(request: ChatRequest):
                 yield f"data: {sse.model_dump_json()}\n\n"
 
         # 최종 결과
-        result = await graph.ainvoke(build_initial_state(request.message))
+        result = await graph.ainvoke(build_initial_state(request.message, history))
         answer = result.get("final_answer", "")
         _save_turn(request.thread_id, request.message, answer)
         done = StreamEvent(
