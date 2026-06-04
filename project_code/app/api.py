@@ -12,43 +12,49 @@ graph = create_graph()
 HISTORY_TURNS = 6
 
 
-def build_initial_state(message: str, history_text: str = "") -> dict:
+def build_initial_state(message: str, history_text: str = "", prev_was_clarification: bool = False) -> dict:
     return {
         "messages": [HumanMessage(content=message)],
         "query": message,
         "history_text": history_text,
         "query_analysis": {},
         "search_results": [],
+        "structured_facts": [],
         "final_answer": "",
         "domain": "",
         "iteration_count": 0,
         "need_clarification": False,
         "clarification_question": "",
+        "prev_was_clarification": prev_was_clarification,
     }
 
 
-def _load_history_text(thread_id: str, limit: int = HISTORY_TURNS) -> str:
+def _load_history(thread_id: str, limit: int = HISTORY_TURNS) -> tuple[str, bool]:
+    """이전 대화 텍스트와, 직전 턴이 되묻기였는지 여부를 함께 반환한다."""
     try:
         db = SessionLocal()
         try:
             session = repositories.get_or_create_session(db, thread_id)
             msgs = repositories.get_recent_messages(db, session.id, limit=limit)
-            return "\n".join(
+            text = "\n".join(
                 f"{'사용자' if m.role == 'user' else '가이드'}: {m.content}" for m in msgs
             )
+            prev_was_clarification = bool(msgs) and msgs[-1].role == "clarification"
+            return text, prev_was_clarification
         finally:
             db.close()
     except Exception:
-        return ""
+        return "", False
 
 
-def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
+def _save_turn(thread_id: str, user_msg: str, assistant_msg: str, is_clarification: bool = False) -> None:
     try:
         db = SessionLocal()
         try:
             session = repositories.get_or_create_session(db, thread_id)
             repositories.append_message(db, session.id, "user", user_msg)
-            repositories.append_message(db, session.id, "assistant", assistant_msg)
+            role = "clarification" if is_clarification else "assistant"
+            repositories.append_message(db, session.id, role, assistant_msg)
         finally:
             db.close()
     except Exception:
@@ -57,24 +63,28 @@ def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
 
 @router.post("/chat/sync", response_model=ChatResponse)
 async def chat_sync(request: ChatRequest):
-    history = _load_history_text(request.thread_id)
-    result = await graph.ainvoke(build_initial_state(request.message, history))
+    history, prev_clar = _load_history(request.thread_id)
+    result = await graph.ainvoke(build_initial_state(request.message, history, prev_clar))
     answer = result.get("final_answer", "")
-    _save_turn(request.thread_id, request.message, answer)
+    _save_turn(
+        request.thread_id, request.message, answer,
+        is_clarification=bool(result.get("need_clarification")),
+    )
     return ChatResponse(answer=answer, domain=result.get("domain", ""))
 
 
 @router.post("/chat")
 async def chat_stream(request: ChatRequest):
-    history = _load_history_text(request.thread_id)
+    history, prev_clar = _load_history(request.thread_id)
 
     async def gen():
         final_answer = ""
         domain = ""
         sources: list[str] = []
+        is_clarification = False
 
         async for event in graph.astream_events(
-            build_initial_state(request.message, history), version="v2"
+            build_initial_state(request.message, history, prev_clar), version="v2"
         ):
             kind = event.get("event", "")
             name = event.get("name", "")
@@ -85,6 +95,8 @@ async def chat_stream(request: ChatRequest):
 
                 if name == "analyze":
                     domain = output.get("domain", "")
+                elif name == "clarify":
+                    is_clarification = bool(output.get("need_clarification", False))
                 elif name == "retrieve":
                     results = output.get("search_results", [])
                     sources = list({
@@ -104,7 +116,7 @@ async def chat_stream(request: ChatRequest):
                     if chunk and hasattr(chunk, "content") and chunk.content:
                         yield f"data: {StreamEvent(event='token', data=chunk.content).model_dump_json()}\n\n"
 
-        _save_turn(request.thread_id, request.message, final_answer)
+        _save_turn(request.thread_id, request.message, final_answer, is_clarification=is_clarification)
         done_payload = {"answer": final_answer, "domain": domain, "sources": sources}
         yield f"data: {StreamEvent(event='done', data=json.dumps(done_payload, ensure_ascii=False)).model_dump_json()}\n\n"
 
@@ -138,7 +150,11 @@ def get_session_messages(thread_id: str):
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         msgs = repositories.get_recent_messages(db, session.id, limit=100)
-        return [{"role": m.role, "content": m.content} for m in msgs]
+        # 'clarification'은 내부 표시용 role이므로 프론트엔드에는 assistant로 노출한다.
+        return [
+            {"role": "assistant" if m.role == "clarification" else m.role, "content": m.content}
+            for m in msgs
+        ]
     finally:
         db.close()
 

@@ -17,6 +17,7 @@ class AgentState(TypedDict):
     iteration_count: int
     need_clarification: bool        # 추가 - kje
     clarification_question: str     # 추가 - kje
+    prev_was_clarification: bool    # 직전 턴이 되묻기였는지(무한 되묻기 방지)
 
 class QueryAnalysis(BaseModel):
     keywords: list[str] = Field(description="keywords")
