@@ -2,8 +2,11 @@ import json
 from fastapi import APIRouter
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
+
 from app.schemas import ChatRequest, ChatResponse, StreamEvent
 from app.graph import create_graph
+from app.core.database import SessionLocal
+from app import repositories
 
 router = APIRouter()
 graph = create_graph()
@@ -22,11 +25,30 @@ def build_initial_state(message: str) -> dict:
     }
 
 
+def _save_turn(thread_id: str, user_msg: str, assistant_msg: str) -> None:
+    """세션을 보장하고 user/assistant 메시지를 저장한다.
+
+    DB 장애가 나도 챗봇 응답은 막지 않도록 best-effort로 처리한다.
+    """
+    try:
+        db = SessionLocal()
+        try:
+            session = repositories.get_or_create_session(db, thread_id)
+            repositories.append_message(db, session.id, "user", user_msg)
+            repositories.append_message(db, session.id, "assistant", assistant_msg)
+        finally:
+            db.close()
+    except Exception:
+        pass
+
+
 @router.post("/chat/sync", response_model=ChatResponse)
 async def chat_sync(request: ChatRequest):
     """동기 방식으로 전체 응답을 한 번에 반환한다."""
     result = await graph.ainvoke(build_initial_state(request.message))
-    return ChatResponse(answer=result.get("final_answer", ""), domain=result.get("domain", ""))
+    answer = result.get("final_answer", "")
+    _save_turn(request.thread_id, request.message, answer)
+    return ChatResponse(answer=answer, domain=result.get("domain", ""))
 
 
 @router.post("/chat")
@@ -45,9 +67,11 @@ async def chat_stream(request: ChatRequest):
 
         # 최종 결과
         result = await graph.ainvoke(build_initial_state(request.message))
+        answer = result.get("final_answer", "")
+        _save_turn(request.thread_id, request.message, answer)
         done = StreamEvent(
             event="done",
-            data=json.dumps({"answer": result.get("final_answer", ""), "domain": result.get("domain", "")}, ensure_ascii=False),
+            data=json.dumps({"answer": answer, "domain": result.get("domain", "")}, ensure_ascii=False),
         )
         yield f"data: {done.model_dump_json()}\n\n"
 
