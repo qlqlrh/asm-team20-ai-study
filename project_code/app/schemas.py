@@ -11,6 +11,7 @@ class AgentState(TypedDict):
     history_text: str
     query_analysis: dict
     search_results: list[dict]
+    structured_facts: list[str]
     final_answer: str
     domain: str
     iteration_count: int
