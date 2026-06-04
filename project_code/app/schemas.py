@@ -16,7 +16,7 @@ class AgentState(TypedDict):
 
 class QueryAnalysis(BaseModel):
     keywords: list[str] = Field(description="keywords")
-    domain: Literal["medical","general","out_of_scope"] = Field(description="domain")
+    domain: Literal["minecraft","general","out_of_scope"] = Field(description="domain")
     intent: str = Field(description="intent")
     status: Literal["success","insufficient"] = Field(description="status")
 

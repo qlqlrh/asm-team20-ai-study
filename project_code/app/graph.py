@@ -1,5 +1,6 @@
 # ========================================
-# Medical QA Agent — LangGraph 워크플로우
+# Minecraft Guide Agent — LangGraph 워크플로우
+# 현재: analyze → retrieve → respond (3노드). 11노드 Agentic Workflow는 후속 이슈.
 # ========================================
 
 from langgraph.graph import StateGraph, START, END
@@ -12,14 +13,14 @@ from app.agents.responder import generate_answer
 def route_by_domain(state: AgentState) -> str:
     """도메인 분류 결과에 따라 다음 노드를 결정한다.
 
-    medical → retrieve (벡터 검색 후 답변)
+    minecraft → retrieve (위키 검색 후 답변)
     general / out_of_scope → respond (바로 답변)
     """
-    return "retrieve" if state.get("domain", "medical") == "medical" else "respond"
+    return "retrieve" if state.get("domain", "minecraft") == "minecraft" else "respond"
 
 
 def create_graph():
-    """Medical QA 워크플로우 그래프를 생성한다."""
+    """Minecraft Guide 워크플로우 그래프를 생성한다."""
     builder = StateGraph(AgentState)
 
     # 노드 추가

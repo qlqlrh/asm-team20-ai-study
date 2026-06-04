@@ -28,7 +28,7 @@ def analyze_query(state: AgentState) -> dict:
         # structured output 파싱 실패 시 기본값으로 fallback
         logger.warning("Query analysis failed: %s", e)
         return {
-            "query_analysis": {"keywords": [], "domain": "medical", "intent": query, "status": "success"},
-            "domain": "medical",
+            "query_analysis": {"keywords": [], "domain": "minecraft", "intent": query, "status": "success"},
+            "domain": "minecraft",
             "messages": [HumanMessage(content=query)],
         }
