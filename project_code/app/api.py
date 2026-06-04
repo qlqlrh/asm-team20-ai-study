@@ -1,4 +1,5 @@
 import json
+import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from langchain_core.messages import HumanMessage
@@ -10,6 +11,7 @@ from app import repositories
 router = APIRouter()
 graph = create_graph()
 HISTORY_TURNS = 6
+logger = logging.getLogger(__name__)
 
 
 def build_initial_state(message: str, history_text: str = "", prev_was_clarification: bool = False) -> dict:
@@ -83,38 +85,45 @@ async def chat_stream(request: ChatRequest):
         sources: list[str] = []
         is_clarification = False
 
-        async for event in graph.astream_events(
-            build_initial_state(request.message, history, prev_clar), version="v2"
-        ):
-            kind = event.get("event", "")
-            name = event.get("name", "")
+        try:
+            async for event in graph.astream_events(
+                build_initial_state(request.message, history, prev_clar), version="v2"
+            ):
+                kind = event.get("event", "")
+                name = event.get("name", "")
 
-            # 노드 완료 → 진행 상황 이벤트 전송
-            if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "respond", "ask"):
-                output = event.get("data", {}).get("output", {})
+                # 노드 완료 → 진행 상황 이벤트 전송
+                if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "respond", "ask"):
+                    output = event.get("data", {}).get("output", {})
 
-                if name == "analyze":
-                    domain = output.get("domain", "")
-                elif name == "clarify":
-                    is_clarification = bool(output.get("need_clarification", False))
-                elif name == "retrieve":
-                    results = output.get("search_results", [])
-                    sources = list({
-                        r.get("metadata", {}).get("title", "")
-                        for r in results
-                        if r.get("metadata", {}).get("title")
-                    })
-                elif name in ("respond", "ask"):
-                    final_answer = output.get("final_answer", final_answer)
+                    if name == "analyze":
+                        domain = output.get("domain", "")
+                    elif name == "clarify":
+                        is_clarification = bool(output.get("need_clarification", False))
+                    elif name == "retrieve":
+                        results = output.get("search_results", [])
+                        sources = list({
+                            r.get("metadata", {}).get("title", "")
+                            for r in results
+                            if r.get("metadata", {}).get("title")
+                        })
+                    elif name in ("respond", "ask"):
+                        final_answer = output.get("final_answer", final_answer)
 
-                yield f"data: {StreamEvent(event='node', node=name, data=json.dumps(output, ensure_ascii=False, default=str)).model_dump_json()}\n\n"
+                    yield f"data: {StreamEvent(event='node', node=name, data=json.dumps(output, ensure_ascii=False, default=str)).model_dump_json()}\n\n"
 
-            # LLM 토큰 스트리밍 (respond 노드에서만)
-            elif kind == "on_chat_model_stream":
-                if event.get("metadata", {}).get("langgraph_node") == "respond":
-                    chunk = event.get("data", {}).get("chunk")
-                    if chunk and hasattr(chunk, "content") and chunk.content:
-                        yield f"data: {StreamEvent(event='token', data=chunk.content).model_dump_json()}\n\n"
+                # LLM 토큰 스트리밍 (respond 노드에서만)
+                elif kind == "on_chat_model_stream":
+                    if event.get("metadata", {}).get("langgraph_node") == "respond":
+                        chunk = event.get("data", {}).get("chunk")
+                        if chunk and hasattr(chunk, "content") and chunk.content:
+                            yield f"data: {StreamEvent(event='token', data=chunk.content).model_dump_json()}\n\n"
+        except Exception:
+            # 노드(LLM/벡터DB 등) 예외로 스트림이 끊겨도 done·저장은 보장한다.
+            # (클라이언트 끊김은 BaseException이라 여기서 잡지 않음 → finally-yield 함정 회피)
+            logger.exception("SSE 스트리밍 처리 중 예외")
+            if not final_answer:
+                final_answer = "죄송해요, 답변을 생성하는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요."
 
         _save_turn(request.thread_id, request.message, final_answer, is_clarification=is_clarification)
         done_payload = {"answer": final_answer, "domain": domain, "sources": sources}
