@@ -10,6 +10,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 
 /**
@@ -32,12 +33,13 @@ public final class CoachApiClient {
     /**
      * 코치에게 메시지를 보내고 응답을 비동기로 받는다.
      *
-     * @param message 사용자가 입력한 질문 (예: "이제 뭐 해야 해?")
+     * @param message   사용자가 입력한 질문 (예: "이제 뭐 해야 해?")
+     * @param inventory 현재 플레이어 인벤토리 (null이면 빈 리스트로 처리)
      * @return 백엔드 응답을 담은 future. 실패 시 {@link CoachApiException}로 완료된다.
      */
-    public static CompletableFuture<ChatResponse> chat(String message) {
+    public static CompletableFuture<ChatResponse> chat(String message, List<InventorySnapshot.InventoryItem> inventory) {
         final String url = CoachConfig.backendUrl() + "/api/v1/chat/sync";
-        final String payload = GSON.toJson(new ChatRequest(message, CoachConfig.threadId()));
+        final String payload = GSON.toJson(new ChatRequest(message, CoachConfig.threadId(), inventory));
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))

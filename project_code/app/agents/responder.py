@@ -4,7 +4,7 @@ from app.core.llm import get_llm
 from app.prompts.templates import (
     RESPONDER_SYSTEM, RESPONDER_FORMAT_GUIDE,
     GENERAL_RESPONSE_SYSTEM, OUT_OF_SCOPE_RESPONSE,
-    format_facts_block,
+    format_facts_block, format_inventory_block,
 )
 
 
@@ -44,9 +44,11 @@ def generate_answer(state: AgentState) -> dict:
     ctx = "\n\n".join(parts) if parts else "(검색 결과 없음)"
     # 확정 사실(티어/레시피)을 참고 위키보다 위에, 우선 적용하도록 주입
     facts_block = format_facts_block(state.get("structured_facts", []))
+    # 인벤토리 컨텍스트 — Mod에서 전달된 경우만 주입, 웹은 항상 빈 문자열
+    inventory_block = format_inventory_block(state.get("inventory", []))
 
     r = llm.invoke([
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
-        HumanMessage(content=f"{hist_block}질문: {query}\n\n{facts_block}참고 위키:\n{ctx}"),
+        HumanMessage(content=f"{hist_block}{inventory_block}질문: {query}\n\n{facts_block}참고 위키:\n{ctx}"),
     ])
     return {"final_answer": r.content, "iteration_count": iteration}
