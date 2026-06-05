@@ -20,7 +20,7 @@ public class CoachClientMod implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        CoachCommand.register();
         LOGGER.info("[{}] 클라이언트 초기화 완료 — '/coach <메시지>'로 코치를 호출하세요.", MOD_ID);
-        // 채팅 명령어 등록은 후속 커밋에서 CoachCommand.register(...)로 연결한다.
     }
 }
