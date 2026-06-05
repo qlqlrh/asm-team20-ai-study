@@ -2,6 +2,7 @@ package com.enderdragon.coach;
 
 import com.enderdragon.coach.api.CoachApiClient;
 import com.enderdragon.coach.api.InventorySnapshot;
+import com.enderdragon.coach.gui.TodoList;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -61,12 +62,13 @@ public final class CoachCommand {
         });
     }
 
-    /** 코치 답변을 줄 단위로 나눠 채팅에 출력한다(여러 줄 가독성). */
+    /** 코치 답변을 줄 단위로 나눠 채팅에 출력하고 TODO를 파싱한다. */
     private static void printAnswer(String answer) {
         if (answer.isBlank()) {
             printLine(Text.literal("[코치] 답변이 비어 있어요. 다시 물어봐 주세요.").formatted(Formatting.RED));
             return;
         }
+        TodoList.parseAndAdd(answer);
         printLine(Text.literal("[코치]").formatted(Formatting.GREEN, Formatting.BOLD));
         for (String line : answer.split("\\r?\\n")) {
             printLine(Text.literal(line));
