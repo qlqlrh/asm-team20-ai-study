@@ -1,6 +1,7 @@
 package com.enderdragon.coach.gui;
 
 import com.enderdragon.coach.api.CoachApiClient;
+import com.enderdragon.coach.api.InventorySnapshot;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -11,6 +12,7 @@ import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletionException;
 
@@ -139,7 +141,12 @@ public class CoachScreen extends Screen {
         CoachChatLog.Message pending = CoachChatLog.addCoach("물어보는 중…");
         stickToBottom = true;
 
-        CoachApiClient.chat(message).whenComplete((response, error) ->
+        MinecraftClient mc = MinecraftClient.getInstance();
+        List<InventorySnapshot.InventoryItem> inv = (mc.player != null)
+                ? InventorySnapshot.capture(mc.player.getInventory())
+                : Collections.emptyList();
+
+        CoachApiClient.chat(message, inv).whenComplete((response, error) ->
                 MinecraftClient.getInstance().execute(() -> {
                     if (error != null) {
                         pending.text = "(오류) " + describe(error);

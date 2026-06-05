@@ -1,6 +1,7 @@
 package com.enderdragon.coach;
 
 import com.enderdragon.coach.api.CoachApiClient;
+import com.enderdragon.coach.api.InventorySnapshot;
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
@@ -9,6 +10,8 @@ import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CompletionException;
 
 /**
@@ -41,7 +44,12 @@ public final class CoachCommand {
     private static void ask(String message) {
         printLine(Text.literal("[코치] 물어보는 중…").formatted(Formatting.GRAY));
 
-        CoachApiClient.chat(message).whenComplete((response, error) -> {
+        MinecraftClient mc = MinecraftClient.getInstance();
+        List<InventorySnapshot.InventoryItem> inv = (mc.player != null)
+                ? InventorySnapshot.capture(mc.player.getInventory())
+                : Collections.emptyList();
+
+        CoachApiClient.chat(message, inv).whenComplete((response, error) -> {
             MinecraftClient client = MinecraftClient.getInstance();
             client.execute(() -> {
                 if (error != null) {
