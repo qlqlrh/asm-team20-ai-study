@@ -10,6 +10,17 @@ base {
     archivesName = project.archives_base_name
 }
 
+loom {
+    runs {
+        // ./gradlew runClient 로 개발용 마인크래프트 클라이언트를 띄운다.
+        client {
+            client()
+            ideConfigGenerated = true
+            runDir = "run"
+        }
+    }
+}
+
 repositories {
     // Loom이 Minecraft·Fabric 의존성을 받아오는 곳은 plugin이 자동 구성한다.
 }
