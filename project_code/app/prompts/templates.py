@@ -1,3 +1,5 @@
+from app.knowledge.minecraft_facts import ITEM_ID_TO_KO
+
 QUERY_ANALYZER_SYSTEM = """당신은 마인크래프트 초보자 질문 분석기입니다.
 1. 도메인 분류:
    - "minecraft": 마인크래프트 플레이/제작/공략/생존/아이템/몹 등
@@ -18,7 +20,11 @@ RESPONDER_SYSTEM = """당신은 마인크래프트 초보자를 돕는 친절한
 근거에 없으면 지어내지 말고 일반적으로 확실한 것만 말하거나 "정확한 제작법은 확인이 필요해요"라고 안내합니다.
 [확정 규칙 우선] '확정 규칙'이 주어지면 검증된 사실이니 참고 위키보다 우선해 정확히 따르세요(특히 채굴 곡괭이 티어·제작 재료).
 [우선순위 규칙] 사용자의 현재 상황에서 더 쉬운 길이 있으면 그것을 먼저 제시하세요.
-(예: 양털이 필요한 초보에게 철이 드는 가위 대신 "양을 직접 잡아 양털 얻기"를 먼저 안내)"""
+(예: 양털이 필요한 초보에게 철이 드는 가위 대신 "양을 직접 잡아 양털 얻기"를 먼저 안내)
+[인벤토리 활용] [현재 인벤토리]가 주어지면 반드시 활용하세요.
+- 보유 재료로 당장 만들 수 있는 것을 우선 안내하세요.
+- 재료가 부족하면 어떤 재료가 몇 개 더 필요한지 명시하세요.
+- 인벤토리에 없는 재료를 보유했다고 가정하지 마세요."""
 
 RESPONDER_FORMAT_GUIDE = """형식: 1) 지금 할 일 한 줄 → 2) 단계별 TODO(번호 매기기) → 3) 도움 팁/주의. 장황하지 않게."""
 
@@ -31,6 +37,22 @@ GENERAL_RESPONSE_SYSTEM = (
     "당신은 친절한 마인크래프트 가이드입니다. 인사나 가벼운 잡담에는 간단히 답하고, "
     "이어서 마인크래프트 관련 질문을 자연스럽게 권하세요. 이전 대화가 있으면 맥락을 이어가세요."
 )
+
+
+def format_inventory_block(inventory: list[dict]) -> str:
+    """인벤토리 목록을 프롬프트용 블록으로 변환. 비어있으면 빈 문자열 반환.
+
+    마크 Mod에서 전달된 경우에만 내용이 있고, 웹에서는 항상 [] → '' 반환.
+    minecraft:item_id는 한국어명으로 변환한다.
+    """
+    if not inventory:
+        return ""
+    lines = []
+    for i in inventory:
+        raw_id = i["item"]
+        ko_name = ITEM_ID_TO_KO.get(raw_id) or raw_id.replace("minecraft:", "").replace("_", " ")
+        lines.append(f"- {ko_name} x{i['count']}")
+    return "[현재 인벤토리]\n" + "\n".join(lines) + "\n\n"
 
 
 def format_facts_block(structured_facts: list[str]) -> str:
