@@ -30,7 +30,9 @@ cd minecraft-mod
 ./gradlew runClient      # 개발용 마인크래프트 클라이언트 실행
 ```
 
-마인크래프트가 뜨면 → 싱글플레이 월드 입장 → 채팅에:
+마인크래프트가 뜨면 → 싱글플레이 월드 입장 → 두 가지 방법으로 코치를 쓸 수 있다.
+
+**① 채팅 명령어** — 채팅에:
 
 ```
 /coach 이제 뭐 해야 해?
@@ -38,6 +40,15 @@ cd minecraft-mod
 ```
 
 코치 응답이 채팅창에 출력된다. (`[코치] 물어보는 중…` → 답변)
+
+**② 전용 GUI 화면** — 기본 키 **`K`** 를 누르면 코치 창이 열린다.
+
+- 게임 채팅과 분리된 별도 창에서 대화 기록이 스크롤로 남는다.
+- 아래 입력창에 메시지를 치고 **Enter** 또는 **보내기** 버튼으로 전송.
+- 창을 닫았다 다시 열어도(K) 같은 세션 대화 기록이 유지된다.
+- 키는 마크 **옵션 → 조작 → "마크 코치"** 에서 바꿀 수 있다.
+
+> 두 진입점 모두 동일한 백엔드(`CoachApiClient`)를 호출한다.
 
 ## 정식 설치 (선택)
 
@@ -66,7 +77,7 @@ COACH_BACKEND_URL=http://192.168.0.10:8001 ./gradlew runClient
 
 ```
 src/main/java/com/enderdragon/coach/
-  CoachClientMod.java        클라이언트 진입점 (명령어 등록)
+  CoachClientMod.java        클라이언트 진입점 (명령어 + K 키 등록)
   CoachCommand.java          /coach <메시지> 명령어 → 호출 → 채팅 출력
   api/
     CoachApiClient.java      POST /api/v1/chat/sync 비동기 호출 (java.net.http)
@@ -75,8 +86,12 @@ src/main/java/com/enderdragon/coach/
     CoachApiException.java    호출 실패 → 사용자 친화 메시지
   config/
     CoachConfig.java         백엔드 주소 · 세션 thread_id
+  gui/
+    CoachScreen.java         전용 GUI 화면 (대화기록·입력창·보내기, K로 열기)
+    CoachChatLog.java        세션 대화 로그 (열고 닫아도 유지)
 src/main/resources/
   fabric.mod.json            모드 메타데이터 (client 진입점)
+  assets/minecraft_coach/lang/   키 이름 번역 (en_us, ko_kr)
 ```
 
 ### 백엔드 API 계약
@@ -92,6 +107,7 @@ src/main/resources/
 ## #4·#5를 위한 확장 포인트
 
 - **이미지(스크린샷) 입력**: 백엔드 Vision 연동 시, 클라이언트 스크린샷을 멀티파트로 보내는 경로를 `CoachApiClient`에 추가.
-- **스트리밍(SSE)**: 현재는 `/chat/sync`(단발). 토큰 스트리밍이 필요하면 백엔드 `POST /chat`(SSE)로 교체하고 채팅에 점진 출력.
-- **전용 GUI**: 현재 1차 형태는 채팅 명령어. `Screen` 기반 코치 패널은 `CoachCommand`의 호출 로직을 재사용해 붙이면 된다.
+- **스트리밍(SSE)**: 현재는 `/chat/sync`(단발). 토큰 스트리밍이 필요하면 백엔드 `POST /chat`(SSE)로 교체하고, GUI라면 `CoachChatLog`의 대기 메시지를 토큰마다 갱신하면 점진 출력이 된다.
+- **전용 GUI**: 1차 골격 구현됨(`CoachScreen`, K 키). 이미지 첨부 버튼·로딩 스피너·레이아웃 다듬기 등으로 고도화 여지.
+- **이미지(스크린샷) 입력**: 백엔드 Vision 연동 시, GUI에 "현재 화면 첨부" 버튼을 두고 스크린샷을 멀티파트로 보내는 경로를 `CoachApiClient`에 추가.
 - **인게임 상태 자동 수집**: 인벤토리·시간대 등을 모드에서 읽어 `message`에 함께 실어 보내면, 사용자가 일일이 입력할 필요가 줄어든다.
