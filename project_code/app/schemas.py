@@ -18,6 +18,7 @@ class AgentState(TypedDict):
     need_clarification: bool        # 추가 - kje
     clarification_question: str     # 추가 - kje
     prev_was_clarification: bool    # 직전 턴이 되묻기였는지(무한 되묻기 방지)
+    inventory: list[dict]           # 마크 Mod에서 전달한 인벤토리 (웹은 항상 [])
 
 class QueryAnalysis(BaseModel):
     keywords: list[str] = Field(description="keywords")
@@ -29,9 +30,14 @@ class ClarificationResult(BaseModel):
     need_clarification: bool = Field(description="추가 정보가 필요하면 true, 바로 답변 가능하면 false")
     question: str = Field(default="", description="need_clarification이 true일 때만 작성하는 한국어 되묻기 질문")
 
+class InventoryItem(BaseModel):
+    item: str
+    count: int
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     thread_id: str = Field(default_factory=lambda: str(uuid4()))
+    inventory: list[InventoryItem] = Field(default_factory=list)
 
 class ChatResponse(BaseModel):
     answer: str
