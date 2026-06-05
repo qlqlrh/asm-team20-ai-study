@@ -2,6 +2,7 @@ package com.enderdragon.coach.gui;
 
 import com.enderdragon.coach.api.CoachApiClient;
 import com.enderdragon.coach.api.InventorySnapshot;
+import com.enderdragon.coach.gui.TodoList;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -152,6 +153,9 @@ public class CoachScreen extends Screen {
                         pending.text = "(오류) " + describe(error);
                     } else {
                         String answer = response.answerOrEmpty();
+                        if (!answer.isBlank()) {
+                            TodoList.parseAndAdd(answer);
+                        }
                         pending.text = answer.isBlank() ? "(빈 응답) 다시 물어봐 주세요." : answer;
                     }
                     stickToBottom = true;

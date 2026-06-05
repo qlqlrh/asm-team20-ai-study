@@ -1,6 +1,8 @@
 package com.enderdragon.coach;
 
 import com.enderdragon.coach.gui.CoachScreen;
+import com.enderdragon.coach.gui.TodoHudRenderer;
+import com.enderdragon.coach.gui.TodoScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
@@ -25,12 +27,15 @@ public class CoachClientMod implements ClientModInitializer {
     public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 
     private static KeyBinding openCoachKey;
+    private static KeyBinding openTodoKey;
 
     @Override
     public void onInitializeClient() {
         CoachCommand.register();
+        TodoHudRenderer.register();
         registerCoachScreenKey();
-        LOGGER.info("[{}] 클라이언트 초기화 완료 — '/coach <메시지>' 또는 K 키로 코치를 호출하세요.", MOD_ID);
+        registerTodoScreenKey();
+        LOGGER.info("[{}] 클라이언트 초기화 완료 — '/coach <메시지>' 또는 K 키로 코치, J 키로 할 일 목록을 호출하세요.", MOD_ID);
     }
 
     private void registerCoachScreenKey() {
@@ -43,6 +48,20 @@ public class CoachClientMod implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openCoachKey.wasPressed()) {
                 client.setScreen(new CoachScreen());
+            }
+        });
+    }
+
+    private void registerTodoScreenKey() {
+        openTodoKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
+                "key.minecraft_coach.todo",
+                InputUtil.Type.KEYSYM,
+                GLFW.GLFW_KEY_J,
+                "key.categories.minecraft_coach"));
+
+        ClientTickEvents.END_CLIENT_TICK.register(client -> {
+            while (openTodoKey.wasPressed()) {
+                client.setScreen(new TodoScreen());
             }
         });
     }
