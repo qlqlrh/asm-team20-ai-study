@@ -1,15 +1,12 @@
 from app.schemas import AgentState
 from app.vector_store import search_documents
 from app.knowledge.facts import lookup_facts
-from app.knowledge.minecraft_facts import ITEM_ID_TO_KO
+from app.knowledge.minecraft_facts import item_ko
 
 
 def _inv_ko(inventory: list[dict]) -> list[str]:
     """인벤토리 아이템 ID 목록을 한국어명 리스트로 변환한다."""
-    return [
-        ITEM_ID_TO_KO.get(raw := i.get("item", "")) or raw.replace("minecraft:", "").replace("_", " ")
-        for i in inventory
-    ]
+    return [item_ko(i.get("item", "")) for i in inventory]
 
 
 def retrieve_context(state: AgentState) -> dict:

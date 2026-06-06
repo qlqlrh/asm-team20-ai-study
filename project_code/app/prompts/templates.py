@@ -1,4 +1,4 @@
-from app.knowledge.minecraft_facts import ITEM_ID_TO_KO
+from app.knowledge.minecraft_facts import item_ko
 
 QUERY_ANALYZER_SYSTEM = """당신은 마인크래프트 초보자 질문 분석기입니다.
 1. 도메인 분류:
@@ -9,6 +9,18 @@ QUERY_ANALYZER_SYSTEM = """당신은 마인크래프트 초보자 질문 분석�
 3. 핵심 키워드: 목표·아이템·블록 등 검색에 쓸 키워드 추출
 [이전 대화]가 주어지면 맥락을 고려하세요. 직전이 마인크래프트 대화라면 "철이 없는데?" 같은 짧은 후속 질문도 minecraft로 분류합니다.
 JSON 형식으로만 응답하세요."""
+
+CLARIFIER_SYSTEM = """당신은 마인크래프트 초보자 가이드 챗봇입니다.
+사용자 질문을 보고, 유용한 답변을 하기 위해 추가 정보가 필요한지 판단합니다.
+
+추가 정보가 필요한 경우 (need_clarification: true):
+- "뭐 해야 해?", "어떻게 해?" 처럼 현재 자원·보유 아이템·진척도를 모르면 구체적 안내가 불가능한 질문
+- 목표나 상황이 너무 막연해서 단계별 경로를 알려주기 어려운 질문
+
+바로 답변하는 경우 (need_clarification: false):
+- "철 곡괭이 만드는 법", "크리퍼가 뭐야?" 처럼 목표/사실이 명확한 질문
+- 이전 대화에서 이미 사용자 상황(보유 아이템·진척도)을 파악한 경우
+- 사용자가 이미 이전 질문에 답하며 현재 상황을 설명한 경우"""
 
 RESPONDER_SYSTEM = """당신은 마인크래프트 초보자를 돕는 친절한 '플레이 코치'입니다.
 검색된 위키 내용을 근거로, 지금 당장 할 수 있는 '다음 한 걸음'을 먼저 알려주고
@@ -69,8 +81,7 @@ def format_inventory_block(inventory: list[dict], connected: bool = False) -> st
         return "[현재 인벤토리] (비어 있음 — 아직 가진 아이템이 없음)\n\n" if connected else ""
     lines = []
     for i in inventory:
-        raw_id = i["item"]
-        ko_name = ITEM_ID_TO_KO.get(raw_id) or raw_id.replace("minecraft:", "").replace("_", " ")
+        ko_name = item_ko(i["item"])
         lines.append(f"- {ko_name} x{i['count']}")
     return "[현재 인벤토리]\n" + "\n".join(lines) + "\n\n"
 

@@ -29,7 +29,7 @@ def _extract_todos(answer: str) -> list[str]:
             HumanMessage(content=answer),
         ])
         todos = [t.strip() for t in result.todos if t and t.strip()]
-        logger.warning("TODO_EXTRACTOR: %d items", len(todos))
+        logger.info("TODO_EXTRACTOR: %d items", len(todos))
         return todos
     except Exception as e:
         logger.warning("Todo extraction failed: %s", e)
@@ -41,17 +41,16 @@ def generate_answer(state: AgentState) -> dict:
 
     - out_of_scope: 고정 안내 응답
     - general: temperature 0.5로 가벼운 답변
-    - minecraft: temperature 0.3으로 위키 검색 결과 기반 코칭 응답
+    - minecraft: temperature 0.2로 위키 검색 결과 기반 코칭 응답
     """
     domain = state.get("domain", "minecraft")
     query = state["query"]
     history = state.get("history_text", "")
-    iteration = state.get("iteration_count", 0) + 1
     hist_block = f"[이전 대화]\n{history}\n\n" if history else ""
 
     # 범위 밖 질문 — 고정 안내
     if domain == "out_of_scope":
-        return {"final_answer": OUT_OF_SCOPE_RESPONSE, "iteration_count": iteration}
+        return {"final_answer": OUT_OF_SCOPE_RESPONSE}
 
     # 일반 질문 — 가벼운 답변
     if domain == "general":
@@ -60,7 +59,7 @@ def generate_answer(state: AgentState) -> dict:
             SystemMessage(content=GENERAL_RESPONSE_SYSTEM),
             HumanMessage(content=f"{hist_block}{query}"),
         ])
-        return {"final_answer": r.content, "iteration_count": iteration}
+        return {"final_answer": r.content}
 
     # 마인크래프트 질문 — streaming=True로 astream_events에서 토큰 캡처 가능
     llm = get_llm(temperature=0.2, streaming=True)
@@ -79,7 +78,7 @@ def generate_answer(state: AgentState) -> dict:
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
         HumanMessage(content=f"{hist_block}{inventory_block}질문: {query}\n\n{facts_block}참고 위키:\n{ctx}"),
     ])
-    out = {"final_answer": r.content, "iteration_count": iteration}
+    out = {"final_answer": r.content}
     # 게임 모드(인벤토리 연동)에서만 할 일 목록용 짧은 TODO를 별도 생성. 웹은 미사용.
     if state.get("inventory_connected"):
         out["todos"] = _extract_todos(r.content)

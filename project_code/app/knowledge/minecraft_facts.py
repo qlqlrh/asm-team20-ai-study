@@ -79,6 +79,16 @@ ITEM_ID_TO_KO: dict[str, str] = {
     "minecraft:obsidian": "흑요석",
 }
 
+
+def item_ko(raw_id: str) -> str:
+    """minecraft:item_id를 한국어명으로 변환한다.
+
+    매핑에 없으면 네임스페이스(minecraft:)와 언더스코어만 정리해 폴백한다.
+    빈 문자열이면 빈 문자열을 반환한다(기존 동작 유지).
+    """
+    return ITEM_ID_TO_KO.get(raw_id) or raw_id.replace("minecraft:", "").replace("_", " ")
+
+
 # 곡괭이별 채굴 레벨 (★금 곡괭이는 0 = 나무와 동급, 철 이상 못 캠)
 PICKAXE_LEVEL = {"나무": 0, "금": 0, "돌": 1, "철": 2, "다이아몬드": 3, "네더라이트": 4}
 
