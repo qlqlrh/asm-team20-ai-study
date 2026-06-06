@@ -31,6 +31,9 @@ bash start.sh                 # Backend → :8001 · 웹뷰 → http://localhost
 | 문서 | 내용 |
 | --- | --- |
 | [docs/실행_가이드.md](docs/실행_가이드.md) | 클론 → 로컬 실행 (팀원 온보딩) |
+| [docs/기술_문서.md](docs/기술_문서.md) | 사용 기술·적용 방법 (아키텍처·워크플로우·RAG·DB·이슈 매핑) |
+| [docs/인게임_사용법.md](docs/인게임_사용법.md) | Fabric 모드 인게임 사용법 |
+| [docs/웹뷰_사용법.md](docs/웹뷰_사용법.md) | Streamlit 검증용 웹뷰 사용법 |
 | [docs/스펙문서.md](docs/스펙문서.md) | 제품 설계·범위·협업 모델 |
 | [docs/구현계획.md](docs/구현계획.md) | 이슈 #5 구현 절차·커밋 분해 |
 | [docs/알려진_이슈.md](docs/알려진_이슈.md) | 현재 알려진 품질 한계·해결 방향 |
