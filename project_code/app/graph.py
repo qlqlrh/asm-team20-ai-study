@@ -11,7 +11,8 @@ from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
 
 def route_by_domain(state: AgentState) -> str:
-    return "retrieve" if state.get("domain", "minecraft") == "minecraft" else "respond"
+    """analyze 후 도메인 분기: 마인크래프트면 clarify(되묻기 판단)로, 그 외엔 곧장 respond로."""
+    return "clarify" if state.get("domain", "minecraft") == "minecraft" else "respond"
 
 
 def route_by_clarification(state: AgentState) -> str:
@@ -34,7 +35,7 @@ def create_graph():
     builder.add_conditional_edges(
         "analyze",
         route_by_domain,
-        {"retrieve": "clarify", "respond": "respond"},
+        {"clarify": "clarify", "respond": "respond"},
     )
     builder.add_conditional_edges(
         "clarify",
