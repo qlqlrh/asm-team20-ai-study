@@ -19,6 +19,7 @@ class AgentState(TypedDict):
     clarification_question: str     # 추가 - kje
     prev_was_clarification: bool    # 직전 턴이 되묻기였는지(무한 되묻기 방지)
     inventory: list[dict]           # 마크 Mod에서 전달한 인벤토리 (웹은 항상 [])
+    inventory_connected: bool       # 인벤토리 연동 클라이언트(게임 모드) 여부 (웹은 False)
 
 class QueryAnalysis(BaseModel):
     keywords: list[str] = Field(description="keywords")
@@ -38,6 +39,8 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     thread_id: str = Field(default_factory=lambda: str(uuid4()))
     inventory: list[InventoryItem] = Field(default_factory=list)
+    # 게임 모드(인벤토리 연동 클라이언트)는 True. 웹은 필드를 보내지 않아 기본 False.
+    inventory_connected: bool = Field(default=False)
 
 class ChatResponse(BaseModel):
     answer: str
