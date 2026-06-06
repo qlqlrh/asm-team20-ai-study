@@ -18,7 +18,7 @@ uv run alembic upgrade head
 bash start.sh                 # Backend → :8001 · 웹뷰 → http://localhost:8002
 ```
 
-👉 상세 절차·트러블슈팅: **[docs/실행_가이드.md](docs/실행_가이드.md)**
+👉 상세 절차·트러블슈팅: **[docs/백엔드_사용법.md](docs/백엔드_사용법.md)**
 
 > 위키 벡터 5,923개는 **공유 Qdrant Cloud에 이미 적재**돼 있어 재적재가 필요 없다. 접속 정보만 받으면 바로 동작한다.
 
@@ -30,12 +30,12 @@ bash start.sh                 # Backend → :8001 · 웹뷰 → http://localhost
 
 | 문서 | 내용 |
 | --- | --- |
-| [docs/실행_가이드.md](docs/실행_가이드.md) | 클론 → 로컬 실행 (팀원 온보딩) |
+| [docs/백엔드_사용법.md](docs/백엔드_사용법.md) | 백엔드(FastAPI) 클론 → 로컬 실행 (팀원 온보딩) |
 | [docs/기술_문서.md](docs/기술_문서.md) | 사용 기술·적용 방법 (아키텍처·워크플로우·RAG·DB·이슈 매핑) |
 | [docs/인게임_사용법.md](docs/인게임_사용법.md) | Fabric 모드 인게임 사용법 |
 | [docs/웹뷰_사용법.md](docs/웹뷰_사용법.md) | Streamlit 검증용 웹뷰 사용법 |
 | [docs/스펙문서.md](docs/스펙문서.md) | 제품 설계·범위·협업 모델 |
-| [docs/구현계획.md](docs/구현계획.md) | 이슈 #5 구현 절차·커밋 분해 |
+| [docs/구현계획/](docs/구현계획/) | 이슈별 구현 절차·커밋 분해 (#5, #7) |
 | [docs/알려진_이슈.md](docs/알려진_이슈.md) | 현재 알려진 품질 한계·해결 방향 |
 | [project_code/README.md](project_code/README.md) | 백엔드·웹뷰 내부 구조·API 계약 |
 | [minecraft-mod/README.md](minecraft-mod/README.md) | 인게임 Fabric 모드 — 빌드·사용법 |
@@ -46,10 +46,9 @@ bash start.sh                 # Backend → :8001 · 웹뷰 → http://localhost
 asm-team20-ai-study/
 ├── README.md          (이 파일 — 프로젝트 진입점)
 ├── docs/              설계·실행 문서 + 아키텍처 다이어그램
-│   ├── 실행_가이드.md
-│   ├── 스펙문서.md
-│   ├── 구현계획.md
-│   └── 알려진_이슈.md
+│   ├── 백엔드_사용법.md · 인게임_사용법.md · 웹뷰_사용법.md
+│   ├── 기술_문서.md · 스펙문서.md · 알려진_이슈.md
+│   └── 구현계획/       이슈별 구현 절차 (이슈-5, 이슈-7)
 ├── project_code/      백엔드(FastAPI·LangGraph) + 검증용 웹뷰(Streamlit)
 └── minecraft-mod/     인게임 Fabric 모드 (실제 메인 클라이언트)
 ```
