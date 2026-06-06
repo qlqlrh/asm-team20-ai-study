@@ -154,7 +154,12 @@ public class CoachScreen extends Screen {
                     } else {
                         String answer = response.answerOrEmpty();
                         if (!answer.isBlank()) {
-                            TodoList.parseAndAdd(answer);
+                            // 할 일 목록: 백엔드가 만든 짧은 todos 우선, 없으면 answer 파싱으로 폴백
+                            if (response.hasTodos()) {
+                                TodoList.addAll(response.todos);
+                            } else {
+                                TodoList.parseAndAdd(answer);
+                            }
                         }
                         pending.text = answer.isBlank() ? "(빈 응답) 다시 물어봐 주세요." : answer;
                     }

@@ -74,7 +74,7 @@ async def chat_sync(request: ChatRequest):
         request.thread_id, request.message, answer,
         is_clarification=bool(result.get("need_clarification")),
     )
-    return ChatResponse(answer=answer, domain=result.get("domain", ""))
+    return ChatResponse(answer=answer, domain=result.get("domain", ""), todos=result.get("todos", []))
 
 
 @router.post("/chat")
