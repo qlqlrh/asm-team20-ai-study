@@ -24,7 +24,6 @@ def analyze_query(state: AgentState) -> dict:
         return {
             "query_analysis": analysis.model_dump(),
             "domain": analysis.domain,
-            "messages": [HumanMessage(content=query)],
         }
     except Exception as e:
         # structured output 파싱 실패 시 기본값으로 fallback
@@ -32,5 +31,4 @@ def analyze_query(state: AgentState) -> dict:
         return {
             "query_analysis": {"keywords": [], "domain": "minecraft", "intent": query, "status": "success"},
             "domain": "minecraft",
-            "messages": [HumanMessage(content=query)],
         }

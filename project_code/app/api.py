@@ -2,7 +2,6 @@ import json
 import logging
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage
 from app.schemas import ChatRequest, ChatResponse, StreamEvent
 from app.graph import create_graph
 from app.core.database import SessionLocal
@@ -10,13 +9,13 @@ from app import repositories
 
 router = APIRouter()
 graph = create_graph()
-HISTORY_TURNS = 6
+# 대화 맥락으로 불러올 최근 메시지 수 (user+assistant 합산이라 6개 ≈ 3턴)
+HISTORY_MESSAGE_LIMIT = 6
 logger = logging.getLogger(__name__)
 
 
 def build_initial_state(message: str, history_text: str = "", prev_was_clarification: bool = False, inventory=None, inventory_connected: bool = False) -> dict:
     return {
-        "messages": [HumanMessage(content=message)],
         "query": message,
         "history_text": history_text,
         "query_analysis": {},
@@ -24,7 +23,6 @@ def build_initial_state(message: str, history_text: str = "", prev_was_clarifica
         "structured_facts": [],
         "final_answer": "",
         "domain": "",
-        "iteration_count": 0,
         "need_clarification": False,
         "clarification_question": "",
         "prev_was_clarification": prev_was_clarification,
@@ -33,7 +31,7 @@ def build_initial_state(message: str, history_text: str = "", prev_was_clarifica
     }
 
 
-def _load_history(thread_id: str, limit: int = HISTORY_TURNS) -> tuple[str, bool]:
+def _load_history(thread_id: str, limit: int = HISTORY_MESSAGE_LIMIT) -> tuple[str, bool]:
     """이전 대화 텍스트와, 직전 턴이 되묻기였는지 여부를 함께 반환한다."""
     try:
         db = SessionLocal()

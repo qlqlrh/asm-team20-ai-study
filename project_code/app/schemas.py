@@ -1,12 +1,9 @@
-import operator
 from uuid import uuid4
-from typing import Annotated, Literal
+from typing import Literal
 from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
-from langchain_core.messages import BaseMessage
 
 class AgentState(TypedDict):
-    messages: Annotated[list[BaseMessage], operator.add]
     query: str
     history_text: str
     query_analysis: dict
@@ -14,7 +11,6 @@ class AgentState(TypedDict):
     structured_facts: list[str]
     final_answer: str
     domain: str
-    iteration_count: int
     need_clarification: bool        # 추가 - kje
     clarification_question: str     # 추가 - kje
     prev_was_clarification: bool    # 직전 턴이 되묻기였는지(무한 되묻기 방지)
