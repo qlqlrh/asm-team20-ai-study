@@ -24,7 +24,9 @@ RESPONDER_SYSTEM = """당신은 마인크래프트 초보자를 돕는 친절한
 [인벤토리 활용] [현재 인벤토리]가 주어지면 반드시 활용하세요.
 - 보유 재료로 당장 만들 수 있는 것을 우선 안내하세요.
 - 재료가 부족하면 어떤 재료가 몇 개 더 필요한지 명시하세요.
-- 인벤토리에 없는 재료를 보유했다고 가정하지 마세요."""
+- 인벤토리에 없는 재료를 보유했다고 가정하지 마세요.
+- [현재 인벤토리]가 주어지면 사용자에게 "무엇을 갖고 있는지" 절대 되묻지 마세요. 이미 전달된 목록만으로 판단합니다.
+- 인벤토리가 '비어 있음'이면 아직 아무것도 없는 상태이니, 맨손으로 시작하는 첫 걸음(나무 캐기 등)부터 안내하세요."""
 
 RESPONDER_FORMAT_GUIDE = """형식: 1) 지금 할 일 한 줄 → 2) 단계별 TODO(번호 매기기) → 3) 도움 팁/주의. 장황하지 않게."""
 
@@ -39,14 +41,16 @@ GENERAL_RESPONSE_SYSTEM = (
 )
 
 
-def format_inventory_block(inventory: list[dict]) -> str:
-    """인벤토리 목록을 프롬프트용 블록으로 변환. 비어있으면 빈 문자열 반환.
+def format_inventory_block(inventory: list[dict], connected: bool = False) -> str:
+    """인벤토리 목록을 프롬프트용 블록으로 변환.
 
-    마크 Mod에서 전달된 경우에만 내용이 있고, 웹에서는 항상 [] → '' 반환.
-    minecraft:item_id는 한국어명으로 변환한다.
+    - 게임 모드(connected=True)인데 인벤토리가 비어 있으면 '비어 있음'을 명시한다.
+      → responder가 "뭐 갖고 있어?"라고 되묻지 않게 한다 (이슈 #24).
+    - 웹(connected=False, 항상 [])은 빈 문자열을 반환해 인벤토리 맥락을 넣지 않는다.
+    - minecraft:item_id는 한국어명으로 변환한다.
     """
     if not inventory:
-        return ""
+        return "[현재 인벤토리] (비어 있음 — 아직 가진 아이템이 없음)\n\n" if connected else ""
     lines = []
     for i in inventory:
         raw_id = i["item"]
