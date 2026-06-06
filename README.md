@@ -53,19 +53,19 @@ cd minecraft-mod && ./gradlew runClient
 웹뷰와 Fabric 모드가 FastAPI를 거쳐 LangGraph로 들어가고, 그 뒤에 MySQL(세션), Qdrant(RAG), LLM/Vision API가 붙습니다.
 
 <p align="center">
-  <img src="docs/01-시스템-아키텍처.png" alt="시스템 아키텍처" width="720">
+  <img src="docs/img/01-시스템-아키텍처.png" alt="시스템 아키텍처" width="720">
 </p>
 
 에이전트는 목표를 분석하고 현재 상태를 모은 다음, 정보가 충분한지 따져보고 상태를 해석합니다.
 
 <p align="center">
-  <img src="docs/02-에이전트-흐름-전반부.png" alt="에이전트 흐름 전반부" width="600">
+  <img src="docs/img/02-에이전트-흐름-전반부.png" alt="에이전트 흐름 전반부" width="600">
 </p>
 
 그다음 선행조건과 부족한 자원을 계산해서 하위 목표와 실행 계획을 세우고, 실행이 가능한지 확인한 뒤 코칭 답변을 내고 상태를 저장합니다.
 
 <p align="center">
-  <img src="docs/03-에이전트-흐름-후반부.png" alt="에이전트 흐름 후반부" width="480">
+  <img src="docs/img/03-에이전트-흐름-후반부.png" alt="에이전트 흐름 후반부" width="480">
 </p>
 
 참고로 위 11노드는 처음에 잡았던 최종 목표고, 지금 실제로 돌아가는 건 5노드(`analyze → clarify →(ask) → retrieve → respond`)입니다. 차이는 [기술 문서](docs/기술_문서.md)에 적어뒀어요.
