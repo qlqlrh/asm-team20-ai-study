@@ -1,5 +1,6 @@
 package com.enderdragon.coach;
 
+import com.enderdragon.coach.api.ChatResponse;
 import com.enderdragon.coach.api.CoachApiClient;
 import com.enderdragon.coach.api.InventorySnapshot;
 import com.enderdragon.coach.gui.TodoList;
@@ -57,18 +58,24 @@ public final class CoachCommand {
                     printLine(Text.literal("[코치] " + describe(error)).formatted(Formatting.RED));
                     return;
                 }
-                printAnswer(response.answerOrEmpty());
+                printAnswer(response);
             });
         });
     }
 
-    /** 코치 답변을 줄 단위로 나눠 채팅에 출력하고 TODO를 파싱한다. */
-    private static void printAnswer(String answer) {
+    /** 코치 답변을 줄 단위로 나눠 채팅에 출력하고 할 일 목록을 갱신한다. */
+    private static void printAnswer(ChatResponse response) {
+        String answer = response.answerOrEmpty();
         if (answer.isBlank()) {
             printLine(Text.literal("[코치] 답변이 비어 있어요. 다시 물어봐 주세요.").formatted(Formatting.RED));
             return;
         }
-        TodoList.parseAndAdd(answer);
+        // 할 일 목록: 백엔드가 만든 짧은 todos 우선, 없으면 answer 파싱으로 폴백
+        if (response.hasTodos()) {
+            TodoList.addAll(response.todos);
+        } else {
+            TodoList.parseAndAdd(answer);
+        }
         printLine(Text.literal("[코치]").formatted(Formatting.GREEN, Formatting.BOLD));
         for (String line : answer.split("\\r?\\n")) {
             printLine(Text.literal(line));

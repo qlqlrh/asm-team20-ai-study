@@ -58,6 +58,28 @@ public final class TodoList {
         return Collections.unmodifiableList(ITEMS);
     }
 
+    /**
+     * 백엔드가 만든 짧은 TODO 목록을 그대로 등록한다. (게임 모드 경로)
+     * 이미 짧은 명령형이라 압축(toShort) 없이 HUD·목록에 동일 텍스트를 쓴다.
+     */
+    public static void addAll(List<String> todos) {
+        if (todos == null) return;
+        for (String todo : todos) {
+            if (todo == null) continue;
+            String clean = cleanTodo(todo);
+            if (clean.isEmpty()) continue;
+            ITEMS.add(new TodoItem(clean, clean));
+        }
+    }
+
+    // 백엔드 todo에 혹시 남은 불릿/번호/마크다운 강조 제거
+    private static String cleanTodo(String s) {
+        String t = s.strip();
+        t = t.replaceFirst("^[-*•]\\s*", "");        // 불릿
+        t = t.replaceFirst("^\\d+\\s*[.)]\\s*", ""); // 번호
+        return t.replace("**", "").strip();          // 마크다운 강조
+    }
+
     public static void parseAndAdd(String answer) {
         if (answer == null || answer.isBlank()) return;
         for (String line : answer.split("\\r?\\n")) {
