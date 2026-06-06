@@ -26,6 +26,10 @@ bash start.sh                 # 백엔드 :8001, 웹뷰 :8002
 
 브라우저에서 `http://localhost:8002`에 접속해서 질문을 입력하면 됩니다. 답변은 진행 상황이 단계별로 보이면서 실시간으로 흘러나오고, 사이드바에서 예전 대화를 다시 보거나 지울 수 있어요.
 
+<p align="center">
+  <img src="docs/img/웹뷰_이용사진.PNG" alt="웹뷰 사용 예시" width="560">
+</p>
+
 ## 🎮 [게임 안에서 써보기](docs/인게임_사용법.md)
 
 마인크래프트 안에서 바로 코치를 부르는 Fabric 모드입니다.
@@ -35,6 +39,22 @@ cd minecraft-mod && ./gradlew runClient
 ```
 
 월드에 들어간 뒤 채팅에 `/coach <질문>`을 치거나, **K**로 코치 창, **J**로 할 일 목록을 열 수 있습니다. 물어볼 때 지금 인벤토리를 같이 보내서, 가진 아이템에 맞춰 답해줍니다.
+
+<p align="center">
+  <img src="docs/img/마크_게임_채팅.png" alt="게임 채팅으로 코치 부르기" width="640"><br>
+  <sub>채팅으로 코치에게 물어보기 (<code>/coach</code>)</sub>
+</p>
+
+코치가 알려준 할 일은 화면 우측 상단 HUD에 뜨고, **J**로 전체 목록을 펼쳐볼 수 있어요.
+
+<div align="center">
+  <table>
+    <tr>
+      <td align="center"><img src="docs/img/마크_미션_인게임.png" alt="인게임 할 일 HUD" width="400"><br><sub>우측 상단 할 일 HUD</sub></td>
+      <td align="center"><img src="docs/img/마크_미션_전체.png" alt="할 일 목록 전체" width="400"><br><sub>할 일 목록 전체 (J)</sub></td>
+    </tr>
+  </table>
+</div>
 
 ---
 
