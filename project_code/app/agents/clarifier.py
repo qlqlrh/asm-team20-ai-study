@@ -19,8 +19,10 @@ CLARIFIER_SYSTEM = """당신은 마인크래프트 초보자 가이드 챗봇입
 
 
 def check_and_clarify(state: AgentState) -> dict:
-    # 인벤토리가 있으면 보유 아이템 상황이 이미 파악됨 → 되묻기 불필요
-    if state.get("inventory"):
+    # 인벤토리가 연동된 클라이언트(게임 모드)면 보유 상황이 이미 전달됨 → 되묻기 불필요.
+    # 아이템 유무가 아니라 '연동 여부'로 판정한다. 빈 인벤토리([])여도 게임 모드면
+    # "뭐 갖고 있어?"라고 되묻지 않는다. (이슈 #24)
+    if state.get("inventory_connected"):
         return {"need_clarification": False, "clarification_question": ""}
 
     history = state.get("history_text", "")

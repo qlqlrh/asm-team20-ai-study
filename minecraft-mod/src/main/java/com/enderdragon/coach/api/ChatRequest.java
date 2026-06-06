@@ -18,6 +18,10 @@ public class ChatRequest {
 
     public final List<InventorySnapshot.InventoryItem> inventory;
 
+    /** 게임 모드는 항상 인벤토리 연동 상태다. 백엔드가 빈 인벤토리여도 되묻지 않도록 알린다. */
+    @SerializedName("inventory_connected")
+    public final boolean inventoryConnected = true;
+
     public ChatRequest(String message, String threadId, List<InventorySnapshot.InventoryItem> inventory) {
         this.message = message;
         this.threadId = threadId;

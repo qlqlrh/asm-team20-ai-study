@@ -44,8 +44,8 @@ def generate_answer(state: AgentState) -> dict:
     ctx = "\n\n".join(parts) if parts else "(검색 결과 없음)"
     # 확정 사실(티어/레시피)을 참고 위키보다 위에, 우선 적용하도록 주입
     facts_block = format_facts_block(state.get("structured_facts", []))
-    # 인벤토리 컨텍스트 — Mod에서 전달된 경우만 주입, 웹은 항상 빈 문자열
-    inventory_block = format_inventory_block(state.get("inventory", []))
+    # 인벤토리 컨텍스트 — 게임 모드(연동)면 빈 인벤토리도 명시, 웹은 빈 문자열
+    inventory_block = format_inventory_block(state.get("inventory", []), state.get("inventory_connected", False))
 
     r = llm.invoke([
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
