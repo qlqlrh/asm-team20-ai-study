@@ -1,7 +1,8 @@
 # ========================================
 # Minecraft Guide Agent - LangGraph workflow
-# analyze -> clarify -> retrieve -> respond (5 nodes)
-# clarify: ask follow-up if info insufficient, pass through if sufficient
+# analyze -> clarify -> retrieve -> craft_plan -> respond
+# clarify    : 정보 부족 시 되묻기, 충분하면 통과
+# craft_plan : 제작 목표가 있으면 결정론으로 부족 자원·채굴 티어 계산
 # ========================================
 from langgraph.graph import StateGraph, START, END
 from app.schemas import AgentState
@@ -9,6 +10,7 @@ from app.agents.query_analyzer import analyze_query
 from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
+from app.agents.craft_planner import plan_craft
 
 def route_by_domain(state: AgentState) -> str:
     """analyze 후 도메인 분기: 마인크래프트면 clarify(되묻기 판단)로, 그 외엔 곧장 respond로."""
@@ -30,6 +32,7 @@ def create_graph():
     builder.add_node("clarify", check_and_clarify)
     builder.add_node("ask", ask_clarification)
     builder.add_node("retrieve", retrieve_context)
+    builder.add_node("craft_plan", plan_craft)
     builder.add_node("respond", generate_answer)
     builder.add_edge(START, "analyze")
     builder.add_conditional_edges(
@@ -43,6 +46,7 @@ def create_graph():
         {"ask": "ask", "retrieve": "retrieve"},
     )
     builder.add_edge("ask", END)
-    builder.add_edge("retrieve", "respond")
+    builder.add_edge("retrieve", "craft_plan")
+    builder.add_edge("craft_plan", "respond")
     builder.add_edge("respond", END)
     return builder.compile()
