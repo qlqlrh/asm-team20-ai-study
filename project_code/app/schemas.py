@@ -16,6 +16,7 @@ class AgentState(TypedDict):
     prev_was_clarification: bool    # 직전 턴이 되묻기였는지(무한 되묻기 방지)
     inventory: list[dict]           # 마크 Mod에서 전달한 인벤토리 (웹은 항상 [])
     inventory_connected: bool       # 인벤토리 연동 클라이언트(게임 모드) 여부 (웹은 False)
+    game_state: dict                # 인게임 상태(시간·체력·좌표 등). 모드만 전달, 없으면 {}
     todos: list[str]                # 게임 할 일 목록용 짧은 명령형 TODO (게임 모드에서만 생성)
 
 class QueryAnalysis(BaseModel):
@@ -37,6 +38,21 @@ class TodoListResult(BaseModel):
 class InventoryItem(BaseModel):
     item: str
     count: int
+
+
+class Position(BaseModel):
+    x: int
+    y: int
+    z: int
+
+
+class GameState(BaseModel):
+    """인게임 상태 — 모드가 전송. 인벤토리만으로 모르는 생존/상황 파악에 쓴다."""
+    time_of_day: str = ""           # "day" | "night"
+    health: float = 0.0             # 0~20
+    hunger: int = 0                 # 0~20
+    dimension: str = ""             # "minecraft:overworld" 등
+    position: Position | None = None
 
 
 class SubgoalState(BaseModel):
@@ -62,6 +78,8 @@ class ChatRequest(BaseModel):
     inventory: list[InventoryItem] = Field(default_factory=list)
     # 게임 모드(인벤토리 연동 클라이언트)는 True. 웹은 필드를 보내지 않아 기본 False.
     inventory_connected: bool = Field(default=False)
+    # 인게임 상태(시간·체력·좌표 등). 모드만 전송, 웹은 None.
+    game_state: GameState | None = None
 
 class ChatResponse(BaseModel):
     answer: str

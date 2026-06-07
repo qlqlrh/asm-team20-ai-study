@@ -7,7 +7,7 @@ from app.prompts.templates import (
     RESPONDER_SYSTEM, RESPONDER_FORMAT_GUIDE,
     GENERAL_RESPONSE_SYSTEM, OUT_OF_SCOPE_RESPONSE,
     TODO_EXTRACTOR_SYSTEM,
-    format_facts_block, format_inventory_block,
+    format_facts_block, format_inventory_block, format_game_state_block,
 )
 
 logger = logging.getLogger(__name__)
@@ -73,10 +73,12 @@ def generate_answer(state: AgentState) -> dict:
     facts_block = format_facts_block(state.get("structured_facts", []))
     # 인벤토리 컨텍스트 — 게임 모드(연동)면 빈 인벤토리도 명시, 웹은 빈 문자열
     inventory_block = format_inventory_block(state.get("inventory", []), state.get("inventory_connected", False))
+    # 인게임 상태(시간·체력 등) — 모드만 전달. 밤·낮은 체력 등 생존 신호를 코치가 우선 고려.
+    state_block = format_game_state_block(state.get("game_state", {}))
 
     r = llm.invoke([
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
-        HumanMessage(content=f"{hist_block}{inventory_block}질문: {query}\n\n{facts_block}참고 위키:\n{ctx}"),
+        HumanMessage(content=f"{hist_block}{state_block}{inventory_block}질문: {query}\n\n{facts_block}참고 위키:\n{ctx}"),
     ])
     out = {"final_answer": r.content}
     # 게임 모드(인벤토리 연동)에서만 할 일 목록용 짧은 TODO를 별도 생성. 웹은 미사용.
