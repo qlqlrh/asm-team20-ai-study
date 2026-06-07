@@ -38,6 +38,24 @@ class InventoryItem(BaseModel):
     item: str
     count: int
 
+
+class SubgoalState(BaseModel):
+    id: str
+    title: str
+    status: str = "pending"  # pending | active | done
+
+
+class CoachingSnapshot(BaseModel):
+    """세션별 코칭 진척도 스냅샷 (coaching_state.state에 JSON으로 저장).
+
+    멀티턴에서 직전 계획 대비 진행을 비교(reconcile)하는 데 쓴다.
+    """
+    current_goal: str = ""
+    goal_key: str = ""                                  # 정규화된 목표 키(예: minecraft:iron_pickaxe)
+    plan: list[SubgoalState] = Field(default_factory=list)
+    completed: list[str] = Field(default_factory=list)  # 완료한 subgoal id
+    last_inventory: list[InventoryItem] = Field(default_factory=list)
+
 class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000)
     thread_id: str = Field(default_factory=lambda: str(uuid4()))
