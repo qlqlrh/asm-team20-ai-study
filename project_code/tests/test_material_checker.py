@@ -1,10 +1,10 @@
-"""craft_plan 노드·목표 해석기 테스트.
+"""check_materials 노드·목표 해석기 테스트.
 
-질문에서 제작 목표를 집어내고, compute_gap 결과가 프롬프트 블록으로 반영되는지 검증한다.
+질문에서 제작 목표를 집어내고, plan_materials 결과가 프롬프트 블록으로 반영되는지 검증한다.
 """
 from app.knowledge.goal_resolver import resolve_craft_target
-from app.agents.craft_planner import plan_craft
-from app.prompts.templates import format_craft_gap_block
+from app.agents.material_checker import check_materials
+from app.prompts.templates import format_material_plan_block
 
 
 def test_제작_목표를_item_id로_해석한다():
@@ -22,21 +22,21 @@ def test_제작_대상이_아니면_None():
     assert resolve_craft_target("안녕") is None
 
 
-def test_craft_plan_노드가_부족자원을_싣는다():
-    out = plan_craft({"query": "철 곡괭이 만들고 싶어", "inventory": []})
+def test_check_materials_노드가_부족자원을_싣는다():
+    out = check_materials({"query": "철 곡괭이 만들고 싶어", "inventory": []})
     assert out["goal_key"] == "minecraft:iron_pickaxe"
-    gap = out["craft_gap"]
+    gap = out["material_plan"]
     assert gap["ready"] is False
     assert any(g["item"] == "minecraft:raw_iron" for g in gap["gather"])
 
 
 def test_제작_목표_없으면_빈_업데이트():
-    assert plan_craft({"query": "안녕!", "inventory": []}) == {}
+    assert check_materials({"query": "안녕!", "inventory": []}) == {}
 
 
 def test_부족자원_블록은_차단_재료를_표시한다():
-    gap = plan_craft({"query": "철 곡괭이 만들고 싶어", "inventory": []})["craft_gap"]
-    block = format_craft_gap_block("minecraft:iron_pickaxe", gap)
+    gap = check_materials({"query": "철 곡괭이 만들고 싶어", "inventory": []})["material_plan"]
+    block = format_material_plan_block("minecraft:iron_pickaxe", gap)
     assert "철 곡괭이" in block
     assert "철 원석" in block
     assert "곡괭이 이상이 있어야" in block  # raw_iron 채굴 차단(곡괭이 없음)
@@ -44,6 +44,6 @@ def test_부족자원_블록은_차단_재료를_표시한다():
 
 def test_재료_충분하면_바로_제작_안내():
     inv = [{"item": "minecraft:iron_ingot", "count": 3}, {"item": "minecraft:stick", "count": 2}]
-    gap = plan_craft({"query": "철 곡괭이 만들래", "inventory": inv})["craft_gap"]
-    block = format_craft_gap_block("minecraft:iron_pickaxe", gap)
+    gap = check_materials({"query": "철 곡괭이 만들래", "inventory": inv})["material_plan"]
+    block = format_material_plan_block("minecraft:iron_pickaxe", gap)
     assert "바로 제작" in block

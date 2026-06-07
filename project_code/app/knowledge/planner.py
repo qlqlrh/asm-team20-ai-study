@@ -101,7 +101,7 @@ def _pick_cook(item_id: str) -> dict | None:
     ))
 
 
-def compute_gap(target_id: str, inventory: dict[str, int] | list[dict], qty: int = 1) -> dict:
+def plan_materials(target_id: str, inventory: dict[str, int] | list[dict], qty: int = 1) -> dict:
     """목표 아이템 qty개를 만들기 위한 부족 자원·획득 경로 트리를 계산한다.
 
     inventory는 {item_id: count} 또는 모드가 보내는 [{"item","count"}] 둘 다 받는다.

@@ -8,7 +8,7 @@ from app.prompts.templates import (
     GENERAL_RESPONSE_SYSTEM, OUT_OF_SCOPE_RESPONSE,
     TODO_EXTRACTOR_SYSTEM,
     format_facts_block, format_inventory_block, format_game_state_block,
-    format_craft_gap_block,
+    format_material_plan_block,
 )
 
 logger = logging.getLogger(__name__)
@@ -77,7 +77,7 @@ def generate_answer(state: AgentState) -> dict:
     # 인게임 상태(시간·체력 등) — 모드만 전달. 밤·낮은 체력 등 생존 신호를 코치가 우선 고려.
     state_block = format_game_state_block(state.get("game_state", {}))
     # 결정론 제작 분석 — 제작 목표가 있으면 검증된 부족 재료·채굴 티어를 우선 적용.
-    craft_block = format_craft_gap_block(state.get("goal_key", ""), state.get("craft_gap", {}))
+    craft_block = format_material_plan_block(state.get("goal_key", ""), state.get("material_plan", {}))
 
     r = llm.invoke([
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
