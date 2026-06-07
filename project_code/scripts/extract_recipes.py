@@ -27,7 +27,16 @@ DEFAULT_JAR = Path.home() / ".gradle/caches/fabric-loom/1.21.1/minecraft-merged.
 OUTPUT_PATH = Path(__file__).resolve().parent.parent / "app/knowledge/recipes.json"
 
 RECIPE_DIR = "data/minecraft/recipe/"
-TAG_DIR = "data/minecraft/tags/item/"
+ITEM_TAG_DIR = "data/minecraft/tags/item/"
+BLOCK_TAG_DIR = "data/minecraft/tags/block/"
+
+# 블록 채굴 티어: 해당 태그에 속한 블록은 그 레벨 이상의 곡괭이로만 캘 수 있다.
+# (곡괭이 레벨: 나무·금=0, 돌=1, 철=2, 다이아=3, 네더라이트=4)
+MINING_TIER_TAGS = {
+    "minecraft:needs_stone_tool": 1,
+    "minecraft:needs_iron_tool": 2,
+    "minecraft:needs_diamond_tool": 3,
+}
 
 # 굽는 타입. crafting_special_*(프로그램 생성)·smithing_trim(장식)은 데이터가 없어 제외.
 CRAFTING_TYPES = {"minecraft:crafting_shaped", "minecraft:crafting_shapeless"}
@@ -39,12 +48,12 @@ COOKING_TYPES = {
 }
 
 
-def load_item_tags(jar: zipfile.ZipFile) -> dict[str, list[str]]:
-    """아이템 태그를 {태그ID: [아이템ID...]}로 로드한다(중첩 태그 재귀 해석, 순서 보존)."""
+def load_tags(jar: zipfile.ZipFile, tag_dir: str) -> dict[str, list[str]]:
+    """태그 디렉토리를 {태그ID: [ID...]}로 로드한다(중첩 태그 재귀 해석, 순서 보존)."""
     raw: dict[str, list[str]] = {}
     for name in jar.namelist():
-        if name.startswith(TAG_DIR) and name.endswith(".json"):
-            tag_id = "minecraft:" + name[len(TAG_DIR):-len(".json")]
+        if name.startswith(tag_dir) and name.endswith(".json"):
+            tag_id = "minecraft:" + name[len(tag_dir):-len(".json")]
             values = json.loads(jar.read(name)).get("values", [])
             raw[tag_id] = [v["id"] if isinstance(v, dict) else v for v in values]
 
@@ -160,7 +169,8 @@ def extract(jar_path: Path) -> dict:
     stonecutting: dict[str, list[dict]] = {}
 
     with zipfile.ZipFile(jar_path) as jar:
-        tags = load_item_tags(jar)
+        tags = load_tags(jar, ITEM_TAG_DIR)
+        mining = build_mining_tiers(load_tags(jar, BLOCK_TAG_DIR))
         for name in jar.namelist():
             if not (name.startswith(RECIPE_DIR) and name.endswith(".json")):
                 continue
@@ -188,13 +198,24 @@ def extract(jar_path: Path) -> dict:
         "_meta": {"source": jar_path.name, "type_counts": {
             "shaped": len(shaped), "shapeless": len(shapeless),
             "cooking": len(cooking), "stonecutting": len(stonecutting),
+            "mining": len(mining),
         }},
         "shaped": shaped,
         "shapeless": shapeless,
         "cooking": cooking,
         "stonecutting": stonecutting,
+        "mining": mining,
         "tags": {t: tags[t] for t in sorted(used_tags) if t in tags},
     }
+
+
+def build_mining_tiers(block_tags: dict[str, list[str]]) -> dict[str, int]:
+    """블록 채굴 티어 {블록ID: 최소 곡괭이 레벨}. 태그 없는 블록(레벨 0)은 담지 않는다."""
+    mining: dict[str, int] = {}
+    for tag_id, tier in MINING_TIER_TAGS.items():
+        for block_id in block_tags.get(tag_id, []):
+            mining[block_id] = max(mining.get(block_id, 0), tier)  # 겹치면 높은 티어
+    return mining
 
 
 def _append(recipes: dict[str, list[dict]], result_id: str, parsed: dict, recipe_id: str) -> None:
@@ -238,7 +259,8 @@ def main() -> int:
     data = extract(args.jar)
     counts = data["_meta"]["type_counts"]
     print(f"      shaped={counts['shaped']} shapeless={counts['shapeless']} "
-          f"cooking={counts['cooking']} stonecutting={counts['stonecutting']} tags={len(data['tags'])}")
+          f"cooking={counts['cooking']} stonecutting={counts['stonecutting']} "
+          f"mining={counts['mining']} tags={len(data['tags'])}")
 
     print(f"[2/2] 저장: {args.out}")
     args.out.write_text(json.dumps(data, ensure_ascii=False, indent=2, sort_keys=True), encoding="utf-8")

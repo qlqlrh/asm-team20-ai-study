@@ -1,0 +1,80 @@
+"""app.knowledge.planner.compute_gap 결정론 엔진 테스트.
+
+목표 아이템 + 인벤토리로 부족 자원·획득 경로·채굴 티어 차단을 정확히 계산하는지
+검증한다(대표 시나리오 '철 곡괭이'·'첫 도구' 중심).
+"""
+from app.knowledge import planner
+
+
+def gather_by_item(result: dict) -> dict[str, dict]:
+    return {g["item"]: g for g in result["gather"]}
+
+
+def test_빈손이면_철곡괭이는_원석과_나무를_채굴해야_한다():
+    r = planner.compute_gap("minecraft:iron_pickaxe", [])
+    assert not r["ready"]
+    g = gather_by_item(r)
+    assert g["minecraft:raw_iron"]["qty"] == 3
+    assert g["minecraft:oak_log"]["qty"] == 1
+
+
+def test_곡괭이가_없으면_철원석_채굴이_차단된다():
+    r = planner.compute_gap("minecraft:iron_pickaxe", [])
+    raw_iron = gather_by_item(r)["minecraft:raw_iron"]
+    assert raw_iron["mining_tier"] == 1
+    assert raw_iron["blocked"] is True
+    assert any(b["item"] == "minecraft:raw_iron" for b in r["blocked"])
+
+
+def test_돌곡괭이가_있으면_철원석_채굴이_가능하다():
+    r = planner.compute_gap("minecraft:iron_pickaxe", [{"item": "minecraft:stone_pickaxe", "count": 1}])
+    raw_iron = gather_by_item(r)["minecraft:raw_iron"]
+    assert raw_iron["blocked"] is False
+    assert r["blocked"] == []
+
+
+def test_재료가_충분하면_바로_제작_가능하다():
+    inv = [{"item": "minecraft:iron_ingot", "count": 3}, {"item": "minecraft:stick", "count": 2}]
+    r = planner.compute_gap("minecraft:iron_pickaxe", inv)
+    assert r["ready"] is True
+    assert r["gather"] == []
+
+
+def test_원석을_보유하면_제련만으로_충당된다():
+    # 곡괭이가 없어도 이미 raw_iron을 들고 있으면 채굴이 필요 없다(제련만 하면 됨).
+    inv = [{"item": "minecraft:raw_iron", "count": 3}, {"item": "minecraft:stick", "count": 2}]
+    r = planner.compute_gap("minecraft:iron_pickaxe", inv)
+    assert r["ready"] is True
+
+
+def test_철주괴는_저장블록이_아니라_제련으로_분해된다():
+    # iron_ingot의 제작 레시피는 iron_block 압축 해제뿐 → 가열(제련) 경로를 택해야 한다.
+    tree = planner.compute_gap("minecraft:iron_ingot", [])["tree"]
+    assert tree["status"] == "cook"
+    assert tree["method"] == "smelting"
+    assert tree["children"][0]["item"] == "minecraft:raw_iron"
+
+
+def test_화로는_조약돌_8개가_필요하고_곡괭이없이는_막힌다():
+    r = planner.compute_gap("minecraft:furnace", [])
+    cobble = gather_by_item(r)["minecraft:cobblestone"]
+    assert cobble["qty"] == 8
+    assert cobble["mining_tier"] == 0
+    assert cobble["blocked"] is True  # 돌 계열은 최소한 나무 곡괭이가 있어야 캘 수 있다
+
+
+def test_다이아는_철곡괭이가_있어야_캘_수_있다():
+    # 돌 곡괭이(레벨1)로는 다이아몬드(티어2)를 캘 수 없다.
+    r = planner.compute_gap("minecraft:diamond_pickaxe", [{"item": "minecraft:stone_pickaxe", "count": 1}])
+    diamond = gather_by_item(r)["minecraft:diamond"]
+    assert diamond["mining_tier"] == 2
+    assert diamond["blocked"] is True
+
+
+def test_곡괭이_레벨과_채굴티어_헬퍼():
+    assert planner.best_pickaxe_level({"minecraft:stone_pickaxe": 1}) == 1
+    assert planner.best_pickaxe_level({"minecraft:golden_pickaxe": 1}) == 0  # 금=나무 동급
+    assert planner.best_pickaxe_level({}) == -1
+    assert planner.mining_tier("minecraft:raw_iron") == 1
+    assert planner.mining_tier("minecraft:diamond") == 2
+    assert planner.mining_tier("minecraft:oak_log") is None  # 손으로 캐는 건 채굴 아님

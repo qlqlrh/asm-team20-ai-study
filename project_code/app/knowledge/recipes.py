@@ -15,6 +15,7 @@ SHAPED: dict[str, list[dict]] = _DATA["shaped"]          # {item_id: [{pattern, 
 SHAPELESS: dict[str, list[dict]] = _DATA["shapeless"]    # {item_id: [{ingredients, reqs, result_count, recipe_id}]}
 COOKING: dict[str, list[dict]] = _DATA["cooking"]        # {item_id: [{ingredient, method, recipe_id}]}
 STONECUTTING: dict[str, list[dict]] = _DATA["stonecutting"]
+MINING: dict[str, int] = _DATA["mining"]                # {block_id: 최소 곡괭이 레벨} (레벨 0 블록은 미수록)
 TAGS: dict[str, list[str]] = _DATA["tags"]              # {tag_id: [item_id...]} (레시피에서 참조된 태그만)
 
 
@@ -35,3 +36,13 @@ def tag_members(tag_id: str) -> list[str]:
 
 def is_craftable(item_id: str) -> bool:
     return item_id in SHAPED or item_id in SHAPELESS
+
+
+def is_tag(token: str) -> bool:
+    """레시피 재료 토큰이 (구체 아이템이 아니라) 태그인지."""
+    return token in TAGS
+
+
+def block_mining_level(block_id: str) -> int:
+    """블록 채굴에 필요한 최소 곡괭이 레벨(0=나무·금 곡괭이로 가능)."""
+    return MINING.get(block_id, 0)
