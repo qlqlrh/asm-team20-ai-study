@@ -34,6 +34,14 @@ RAW_SOURCES = {
     "minecraft:cobblestone": "minecraft:stone",
 }
 
+# 몹/농사 등에서 얻는 기초 재료. 제작 레시피가 있어도(예: 양털←실 4) 초보의 자연스러운
+# 획득은 양 깎기·소 잡기다. 분해하지 않고 수집으로 멈춰, '어떻게 얻는지'는 코칭(LLM+RAG)에 맡긴다.
+GATHERED_BASE = {"minecraft:leather"}
+
+
+def _is_base_gathered(item_id: str) -> bool:
+    return item_id in GATHERED_BASE or item_id.endswith("_wool")
+
 
 def best_pickaxe_level(inventory: dict[str, int]) -> int:
     """인벤토리에서 가장 좋은 곡괭이의 채굴 레벨. 곡괭이가 없으면 -1."""
@@ -58,14 +66,24 @@ def _ingredient_token(ing: dict | None) -> str | None:
 
 
 def _pick_craft(item_id: str, path: list[str]) -> dict | None:
-    """순환을 일으키지 않는 첫 제작 레시피(대표 우선). 없으면 None.
-
-    iron_block→9주괴 같은 '압축 해제' 레시피는 reqs가 조상(path)에 있어 자동 배제된다.
-    """
+    """순환·압축 해제를 배제한 첫 제작 레시피(대표 우선). 없으면 None."""
     for variant in recipes.craft_recipes(item_id):
-        if not any(token in path for token in variant["reqs"]):
-            return variant
+        if any(token in path for token in variant["reqs"]):
+            continue  # 순환 (조상 재료 재등장)
+        if _is_unpacking(variant):
+            continue  # 저장블록 압축 해제 (예: 건초더미 1→밀 9, 철블록 1→주괴 9)
+        return variant
     return None
+
+
+def _is_unpacking(variant: dict) -> bool:
+    """저장 블록을 푸는 레시피인지: 단일 재료 1개로 9개 이상을 만든다(밀·주괴 등).
+
+    이런 레시피로 기초 재료를 '제작'한다고 안내하면 비현실적이라 배제한다.
+    (반대로 블록을 '만드는' 9개→1개 레시피는 result_count가 작아 걸리지 않는다.)
+    """
+    reqs = variant["reqs"]
+    return len(reqs) == 1 and next(iter(reqs.values())) == 1 and variant["result_count"] >= 9
 
 
 def _is_raw_ingredient(token: str | None) -> bool:
@@ -133,9 +151,10 @@ def _resolve(token: str, qty: int, have: dict[str, int], pickaxe: int, path: lis
     if target is None or depth >= MAX_DEPTH or target in path:
         return _as_gather(node, target, pickaxe)
 
-    # 채굴/수집으로 얻는 기초 재료(원석·다이아·조약돌 등)는 분해하지 않고 바로 수집한다.
-    # (원석↔저장블록 압축 해제 레시피로 엉뚱하게 분해되는 것을 막는다.)
-    if mining_tier(target) is not None:
+    # 기초 재료는 분해하지 않고 바로 수집한다.
+    #  - 채굴(원석·다이아·조약돌): 원석↔저장블록 압축 해제로 엉뚱하게 분해되는 것을 막는다.
+    #  - 몹/농사(양털·가죽): 제작 레시피가 있어도 자연스러운 획득은 수집이다.
+    if mining_tier(target) is not None or _is_base_gathered(target):
         return _as_gather(node, target, pickaxe)
 
     # 제련 결과물(주괴·유리·돌 등)은 제작보다 가열이 자연스러운 경로다.

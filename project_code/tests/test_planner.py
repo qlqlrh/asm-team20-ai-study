@@ -71,6 +71,22 @@ def test_다이아는_철곡괭이가_있어야_캘_수_있다():
     assert diamond["blocked"] is True
 
 
+def test_침대는_양털을_수집하지_실로_제작하지_않는다():
+    # 양털은 실 4개로 제작 가능하지만, 초보의 자연스러운 획득은 양 깎기다.
+    r = planner.compute_gap("minecraft:white_bed", [])
+    g = gather_by_item(r)
+    assert g["minecraft:white_wool"]["qty"] == 3
+    assert "minecraft:string" not in g  # 실로 분해하면 안 됨
+
+
+def test_빵은_밀을_수집하지_건초더미로_분해하지_않는다():
+    # 밀↔건초더미는 저장블록 압축 해제 관계 → 밀을 직접 수집해야 한다.
+    r = planner.compute_gap("minecraft:bread", [])
+    g = gather_by_item(r)
+    assert g["minecraft:wheat"]["qty"] == 3
+    assert "minecraft:hay_block" not in g
+
+
 def test_곡괭이_레벨과_채굴티어_헬퍼():
     assert planner.best_pickaxe_level({"minecraft:stone_pickaxe": 1}) == 1
     assert planner.best_pickaxe_level({"minecraft:golden_pickaxe": 1}) == 0  # 금=나무 동급
