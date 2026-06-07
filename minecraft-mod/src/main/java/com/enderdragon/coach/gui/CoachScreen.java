@@ -1,6 +1,7 @@
 package com.enderdragon.coach.gui;
 
 import com.enderdragon.coach.api.CoachApiClient;
+import com.enderdragon.coach.api.GameStateSnapshot;
 import com.enderdragon.coach.api.InventorySnapshot;
 import com.enderdragon.coach.gui.TodoList;
 import net.minecraft.client.MinecraftClient;
@@ -146,8 +147,9 @@ public class CoachScreen extends Screen {
         List<InventorySnapshot.InventoryItem> inv = (mc.player != null)
                 ? InventorySnapshot.capture(mc.player.getInventory())
                 : Collections.emptyList();
+        GameStateSnapshot.GameState gameState = GameStateSnapshot.capture(mc);
 
-        CoachApiClient.chat(message, inv).whenComplete((response, error) ->
+        CoachApiClient.chat(message, inv, gameState).whenComplete((response, error) ->
                 MinecraftClient.getInstance().execute(() -> {
                     if (error != null) {
                         pending.text = "(오류) " + describe(error);

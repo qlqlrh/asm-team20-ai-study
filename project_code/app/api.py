@@ -14,7 +14,7 @@ HISTORY_MESSAGE_LIMIT = 6
 logger = logging.getLogger(__name__)
 
 
-def build_initial_state(message: str, history_text: str = "", prev_was_clarification: bool = False, inventory=None, inventory_connected: bool = False) -> dict:
+def build_initial_state(message: str, history_text: str = "", prev_was_clarification: bool = False, inventory=None, inventory_connected: bool = False, game_state=None) -> dict:
     return {
         "query": message,
         "history_text": history_text,
@@ -28,6 +28,7 @@ def build_initial_state(message: str, history_text: str = "", prev_was_clarifica
         "prev_was_clarification": prev_was_clarification,
         "inventory": [i.model_dump() for i in (inventory or [])],
         "inventory_connected": inventory_connected,
+        "game_state": game_state.model_dump() if game_state else {},
     }
 
 
@@ -66,7 +67,7 @@ def _save_turn(thread_id: str, user_msg: str, assistant_msg: str, is_clarificati
 @router.post("/chat/sync", response_model=ChatResponse)
 async def chat_sync(request: ChatRequest):
     history, prev_clar = _load_history(request.thread_id)
-    result = await graph.ainvoke(build_initial_state(request.message, history, prev_clar, request.inventory, request.inventory_connected))
+    result = await graph.ainvoke(build_initial_state(request.message, history, prev_clar, request.inventory, request.inventory_connected, request.game_state))
     answer = result.get("final_answer", "")
     _save_turn(
         request.thread_id, request.message, answer,
@@ -87,7 +88,7 @@ async def chat_stream(request: ChatRequest):
 
         try:
             async for event in graph.astream_events(
-                build_initial_state(request.message, history, prev_clar, request.inventory, request.inventory_connected), version="v2"
+                build_initial_state(request.message, history, prev_clar, request.inventory, request.inventory_connected, request.game_state), version="v2"
             ):
                 kind = event.get("event", "")
                 name = event.get("name", "")

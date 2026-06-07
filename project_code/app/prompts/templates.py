@@ -38,7 +38,11 @@ RESPONDER_SYSTEM = """당신은 마인크래프트 초보자를 돕는 친절한
 - 재료가 부족하면 어떤 재료가 몇 개 더 필요한지 명시하세요.
 - 인벤토리에 없는 재료를 보유했다고 가정하지 마세요.
 - [현재 인벤토리]가 주어지면 사용자에게 "무엇을 갖고 있는지" 절대 되묻지 마세요. 이미 전달된 목록만으로 판단합니다.
-- 인벤토리가 '비어 있음'이면 아직 아무것도 없는 상태이니, 맨손으로 시작하는 첫 걸음(나무 캐기 등)부터 안내하세요."""
+- 인벤토리가 '비어 있음'이면 아직 아무것도 없는 상태이니, 맨손으로 시작하는 첫 걸음(나무 캐기 등)부터 안내하세요.
+[현재 상태 활용] [현재 상태](시간·체력·배고픔 등)가 주어지면 생존을 우선 고려하세요.
+- 밤이면 적대 몹 위험을 짚고, 안전 확보(은신처·횃불 등)를 먼저 안내하세요.
+- 체력·배고픔이 낮으면 그 회복을 다른 목표보다 앞세우세요.
+- 위급 신호가 없으면 원래 목표 안내를 이어가되 상황을 가볍게 반영하세요."""
 
 RESPONDER_FORMAT_GUIDE = """형식: 1) 지금 할 일 한 줄 → 2) 단계별 TODO(번호 매기기) → 3) 도움 팁/주의. 장황하지 않게."""
 
@@ -84,6 +88,43 @@ def format_inventory_block(inventory: list[dict], connected: bool = False) -> st
         ko_name = item_ko(i["item"])
         lines.append(f"- {ko_name} x{i['count']}")
     return "[현재 인벤토리]\n" + "\n".join(lines) + "\n\n"
+
+
+_KO_DIMENSION = {
+    "minecraft:overworld": "오버월드",
+    "minecraft:the_nether": "네더",
+    "minecraft:the_end": "엔드",
+}
+
+
+def format_game_state_block(game_state: dict) -> str:
+    """인게임 상태(시간·체력·배고픔·차원·좌표)를 프롬프트용 블록으로 변환한다.
+
+    모드만 전달하므로, 없으면(웹) 빈 문자열. 위험 신호(밤·낮은 체력/배고픔)는 명시해
+    코치가 생존 상황을 우선 고려하도록 한다.
+    """
+    if not game_state:
+        return ""
+    lines = []
+    if game_state.get("time_of_day") == "night":
+        lines.append("- 시간: 밤 (적대 몹이 나타날 수 있어 위험)")
+    elif game_state.get("time_of_day") == "day":
+        lines.append("- 시간: 낮")
+    health = game_state.get("health") or 0
+    if health > 0:
+        lines.append(f"- 체력: {health:.0f}/20" + (" (낮음 — 안전 확보 우선)" if health <= 6 else ""))
+    hunger = game_state.get("hunger")
+    if hunger is not None:
+        lines.append(f"- 배고픔: {hunger}/20" + (" (낮음 — 음식 필요)" if hunger <= 6 else ""))
+    dimension = game_state.get("dimension")
+    if dimension:
+        lines.append(f"- 차원: {_KO_DIMENSION.get(dimension, dimension)}")
+    pos = game_state.get("position")
+    if pos:
+        lines.append(f"- 위치: ({pos['x']}, {pos['y']}, {pos['z']})")
+    if not lines:
+        return ""
+    return "[현재 상태]\n" + "\n".join(lines) + "\n\n"
 
 
 def format_facts_block(structured_facts: list[str]) -> str:
