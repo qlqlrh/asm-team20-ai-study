@@ -18,7 +18,7 @@ class AgentState(TypedDict):
     inventory_connected: bool       # 인벤토리 연동 클라이언트(게임 모드) 여부 (웹은 False)
     game_state: dict                # 인게임 상태(시간·체력·좌표 등). 모드만 전달, 없으면 {}
     goal_key: str                   # 해석된 제작 목표 item id (없으면 "")
-    craft_gap: dict                 # compute_gap 결과(부족 자원·채굴 티어). 제작 목표 있을 때만
+    material_plan: dict             # plan_materials 결과(부족 자원·채굴 티어). 제작 목표 있을 때만
     todos: list[str]                # 게임 할 일 목록용 짧은 명령형 TODO (게임 모드에서만 생성)
 
 class QueryAnalysis(BaseModel):
