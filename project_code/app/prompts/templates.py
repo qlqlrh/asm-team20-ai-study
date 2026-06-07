@@ -138,6 +138,37 @@ def format_game_state_block(game_state: dict) -> str:
     return "[현재 상태]\n" + "\n".join(lines) + "\n\n"
 
 
+_TIER_PICKAXE = {1: "돌", 2: "철", 3: "다이아몬드"}
+
+
+def format_craft_gap_block(target_id: str, gap: dict) -> str:
+    """결정론 플래너(compute_gap) 결과를 프롬프트용 블록으로 변환한다.
+
+    검증된 수치이므로 LLM이 임의로 바꾸지 않도록 명시한다. 제작 목표가 없으면 빈 문자열.
+    """
+    if not target_id or not gap:
+        return ""
+    target_ko = item_ko(target_id)
+    if gap.get("ready"):
+        return f"[제작 분석] '{target_ko}'은(는) 지금 보유 재료로 바로 제작할 수 있습니다.\n\n"
+
+    lines = []
+    for item in gap.get("gather", []):
+        name = item_ko(item["item"])
+        note = ""
+        if item.get("blocked"):
+            pickaxe = _TIER_PICKAXE.get(item.get("mining_tier"), "더 좋은")
+            note = f" (⚠️ {pickaxe} 곡괭이 이상이 있어야 캘 수 있음)"
+        lines.append(f"- {name} {item['qty']}개{note}")
+
+    return (
+        f"[제작 분석] 목표: {target_ko} — 아래는 게임 데이터로 검증한 부족 재료입니다.\n"
+        + "\n".join(lines)
+        + "\n이 품목과 개수를 정확히 따르고 임의로 바꾸지 마세요. "
+        "차단(⚠️) 표시된 재료는 먼저 해당 곡괭이부터 마련하도록 안내하세요.\n\n"
+    )
+
+
 def format_facts_block(structured_facts: list[str]) -> str:
     """확정 사실 리스트를 프롬프트용 블록으로 변환한다. 비어있으면 빈 문자열.
 
