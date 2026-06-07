@@ -8,7 +8,7 @@ from app.prompts.templates import (
     GENERAL_RESPONSE_SYSTEM, OUT_OF_SCOPE_RESPONSE,
     TODO_EXTRACTOR_SYSTEM,
     format_facts_block, format_inventory_block, format_game_state_block,
-    format_material_plan_block,
+    format_material_plan_block, format_progress_block,
 )
 
 logger = logging.getLogger(__name__)
@@ -78,10 +78,12 @@ def generate_answer(state: AgentState) -> dict:
     state_block = format_game_state_block(state.get("game_state", {}))
     # 결정론 제작 분석 — 제작 목표가 있으면 검증된 부족 재료·채굴 티어를 우선 적용.
     craft_block = format_material_plan_block(state.get("goal_key", ""), state.get("material_plan", {}))
+    # 진행 상황 — 직전 턴 이후 새로 얻은 재료가 있으면 반영.
+    progress_block = format_progress_block(state.get("progress_note", []))
 
     r = llm.invoke([
         SystemMessage(content=f"{RESPONDER_SYSTEM}\n{RESPONDER_FORMAT_GUIDE}"),
-        HumanMessage(content=f"{hist_block}{state_block}{inventory_block}질문: {query}\n\n{craft_block}{facts_block}참고 위키:\n{ctx}"),
+        HumanMessage(content=f"{hist_block}{progress_block}{state_block}{inventory_block}질문: {query}\n\n{craft_block}{facts_block}참고 위키:\n{ctx}"),
     ])
     out = {"final_answer": r.content}
     # 게임 모드(인벤토리 연동)에서만 할 일 목록용 짧은 TODO를 별도 생성. 웹은 미사용.

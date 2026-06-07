@@ -4,6 +4,7 @@ from typing_extensions import TypedDict
 from pydantic import BaseModel, Field
 
 class AgentState(TypedDict):
+    thread_id: str                  # 세션 식별자 (진척도 load/persist에 사용)
     query: str
     history_text: str
     query_analysis: dict
@@ -19,6 +20,9 @@ class AgentState(TypedDict):
     game_state: dict                # 인게임 상태(시간·체력·좌표 등). 모드만 전달, 없으면 {}
     goal_key: str                   # 해석된 제작 목표 item id (없으면 "")
     material_plan: dict             # plan_materials 결과(부족 자원·채굴 티어). 제작 목표 있을 때만
+    prior_goal_key: str             # 직전 턴의 목표 item id (load_state가 로드)
+    prior_last_inventory: list[dict]  # 직전 턴 종료 시 인벤토리 (진행 비교용)
+    progress_note: list[dict]       # 직전 턴 이후 새로 얻은 재료 (reconcile 산출)
     todos: list[str]                # 게임 할 일 목록용 짧은 명령형 TODO (게임 모드에서만 생성)
 
 class QueryAnalysis(BaseModel):

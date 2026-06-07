@@ -138,6 +138,17 @@ def format_game_state_block(game_state: dict) -> str:
     return "[현재 상태]\n" + "\n".join(lines) + "\n\n"
 
 
+def format_progress_block(progress_note: list[dict]) -> str:
+    """직전 턴 이후 새로 얻은 재료를 프롬프트용 블록으로 변환한다. 없으면 빈 문자열.
+
+    코치가 진행을 알아보고 격려하며 다음 단계로 이어가도록 한다.
+    """
+    if not progress_note:
+        return ""
+    items = ", ".join(f"{item_ko(p['item'])} {p['count']}개" for p in progress_note)
+    return f"[진행 상황] 지난번 이후 새로 얻은 재료: {items}. 이 진행을 반영해 다음 단계를 안내하세요.\n\n"
+
+
 _TIER_PICKAXE = {1: "돌", 2: "철", 3: "다이아몬드"}
 
 

@@ -1,8 +1,11 @@
 # ========================================
 # Minecraft Guide Agent - LangGraph workflow
-# analyze -> clarify -> retrieve -> check_materials -> respond
+# load_state -> analyze -> clarify -> retrieve -> check_materials -> reconcile -> respond -> persist_state
+# load_state      : 직전 턴 진척도(목표·인벤토리) 로드
 # clarify         : 정보 부족 시 되묻기, 충분하면 통과
 # check_materials : 제작 목표가 있으면 결정론으로 부족 자원·채굴 티어 계산
+# reconcile       : 직전 인벤토리와 비교해 새로 얻은 재료(진행) 인식
+# persist_state   : 이번 턴 진척도 저장 (모든 종료 경로 공통)
 # ========================================
 from langgraph.graph import StateGraph, START, END
 from app.schemas import AgentState
@@ -11,6 +14,7 @@ from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
 from app.agents.material_checker import check_materials
+from app.agents.session_memory import load_state, reconcile, persist_state
 
 def route_by_domain(state: AgentState) -> str:
     """analyze 후 도메인 분기: 마인크래프트면 clarify(되묻기 판단)로, 그 외엔 곧장 respond로."""
@@ -28,13 +32,17 @@ def ask_clarification(state: AgentState) -> dict:
 
 def create_graph():
     builder = StateGraph(AgentState)
+    builder.add_node("load_state", load_state)
     builder.add_node("analyze", analyze_query)
     builder.add_node("clarify", check_and_clarify)
     builder.add_node("ask", ask_clarification)
     builder.add_node("retrieve", retrieve_context)
     builder.add_node("check_materials", check_materials)
+    builder.add_node("reconcile", reconcile)
     builder.add_node("respond", generate_answer)
-    builder.add_edge(START, "analyze")
+    builder.add_node("persist_state", persist_state)
+    builder.add_edge(START, "load_state")
+    builder.add_edge("load_state", "analyze")
     builder.add_conditional_edges(
         "analyze",
         route_by_domain,
@@ -45,8 +53,11 @@ def create_graph():
         route_by_clarification,
         {"ask": "ask", "retrieve": "retrieve"},
     )
-    builder.add_edge("ask", END)
     builder.add_edge("retrieve", "check_materials")
-    builder.add_edge("check_materials", "respond")
-    builder.add_edge("respond", END)
+    builder.add_edge("check_materials", "reconcile")
+    builder.add_edge("reconcile", "respond")
+    # 모든 종료 경로는 persist_state를 거쳐 진척도를 저장한다.
+    builder.add_edge("ask", "persist_state")
+    builder.add_edge("respond", "persist_state")
+    builder.add_edge("persist_state", END)
     return builder.compile()
