@@ -1,7 +1,8 @@
 # ========================================
 # Minecraft Guide Agent - LangGraph workflow
-# load_state -> analyze -> clarify -> retrieve -> check_materials -> reconcile -> respond -> persist_state
+# load_state -> analyze -> resolve_goal -> clarify -> retrieve -> check_materials -> reconcile -> respond -> persist_state
 # load_state      : 직전 턴 진척도(목표·인벤토리) 로드
+# resolve_goal    : 목표 클래스 분류 + 막연한 질문이면 상태 근거로 다음 목표 제안
 # clarify         : 정보 부족 시 되묻기, 충분하면 통과
 # check_materials : 제작 목표가 있으면 결정론으로 부족 자원·채굴 티어 계산
 # reconcile       : 직전 인벤토리와 비교해 새로 얻은 재료(진행) 인식
@@ -10,6 +11,7 @@
 from langgraph.graph import StateGraph, START, END
 from app.schemas import AgentState
 from app.agents.query_analyzer import analyze_query
+from app.agents.goal_resolver import resolve_goal
 from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
@@ -17,8 +19,8 @@ from app.agents.material_checker import check_materials
 from app.agents.session_memory import load_state, reconcile, persist_state
 
 def route_by_domain(state: AgentState) -> str:
-    """analyze 후 도메인 분기: 마인크래프트면 clarify(되묻기 판단)로, 그 외엔 곧장 respond로."""
-    return "clarify" if state.get("domain", "minecraft") == "minecraft" else "respond"
+    """analyze 후 도메인 분기: 마인크래프트면 resolve_goal(목표 해석)로, 그 외엔 곧장 respond로."""
+    return "resolve_goal" if state.get("domain", "minecraft") == "minecraft" else "respond"
 
 
 def route_by_clarification(state: AgentState) -> str:
@@ -34,6 +36,7 @@ def create_graph():
     builder = StateGraph(AgentState)
     builder.add_node("load_state", load_state)
     builder.add_node("analyze", analyze_query)
+    builder.add_node("resolve_goal", resolve_goal)
     builder.add_node("clarify", check_and_clarify)
     builder.add_node("ask", ask_clarification)
     builder.add_node("retrieve", retrieve_context)
@@ -46,8 +49,9 @@ def create_graph():
     builder.add_conditional_edges(
         "analyze",
         route_by_domain,
-        {"clarify": "clarify", "respond": "respond"},
+        {"resolve_goal": "resolve_goal", "respond": "respond"},
     )
+    builder.add_edge("resolve_goal", "clarify")
     builder.add_conditional_edges(
         "clarify",
         route_by_clarification,
