@@ -94,3 +94,30 @@ def test_곡괭이_레벨과_채굴티어_헬퍼():
     assert planner.mining_tier("minecraft:raw_iron") == 1
     assert planner.mining_tier("minecraft:diamond") == 2
     assert planner.mining_tier("minecraft:oak_log") is None  # 손으로 캐는 건 채굴 아님
+
+
+def test_next_action_재료_충분하면_제작():
+    assert planner.next_action({"ready": True, "gather": []}) == {"kind": "craft"}
+
+
+def test_next_action_막히지_않은_낮은_티어부터():
+    # 막대기(채굴 아님, tier None=0)와 막힌 철 원석 → 막대기를 먼저.
+    plan = {"ready": False, "gather": [
+        {"item": "minecraft:raw_iron", "qty": 3, "mining_tier": 1, "blocked": True},
+        {"item": "minecraft:stick", "qty": 2, "blocked": False},
+    ]}
+    nxt = planner.next_action(plan)
+    assert nxt["kind"] == "gather" and nxt["item"] == "minecraft:stick"
+
+
+def test_next_action_전부_막히면_가장_낮은_티어_선행():
+    plan = {"ready": False, "gather": [
+        {"item": "minecraft:diamond", "qty": 1, "mining_tier": 2, "blocked": True},
+        {"item": "minecraft:raw_iron", "qty": 3, "mining_tier": 1, "blocked": True},
+    ]}
+    nxt = planner.next_action(plan)
+    assert nxt["item"] == "minecraft:raw_iron"  # 티어 1 < 2
+
+
+def test_next_action_빈_플랜은_None():
+    assert planner.next_action({"ready": False, "gather": []}) is None

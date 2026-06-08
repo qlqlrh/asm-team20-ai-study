@@ -8,13 +8,14 @@ import logging
 
 from app.schemas import AgentState
 from app.core.database import SessionLocal
+from app.knowledge import planner
 from app import repositories
 
 logger = logging.getLogger(__name__)
 
 
 def load_state(state: AgentState) -> dict:
-    """직전 턴의 진척도 스냅샷을 불러온다(목표·인벤토리)."""
+    """직전 턴의 진척도 스냅샷을 불러온다(목표·인벤토리·plan·완료 단계)."""
     thread_id = state.get("thread_id")
     if not thread_id:
         return {}
@@ -27,36 +28,77 @@ def load_state(state: AgentState) -> dict:
     return {
         "prior_goal_key": snapshot.get("goal_key", ""),
         "prior_last_inventory": snapshot.get("last_inventory", []),
+        "prior_plan": snapshot.get("plan", []),
+        "prior_completed": snapshot.get("completed", []),
     }
 
 
 def reconcile(state: AgentState) -> dict:
-    """직전 인벤토리와 비교해 새로 얻은 재료를 집어낸다(진행 상황 인식).
+    """직전 진척도와 현재 상태를 견줘 진행을 인식한다.
 
-    첫 턴이거나 늘어난 재료가 없으면 빈 결과. responder가 이 노트로 진행을 격려한다.
+    1) 인벤토리 델타로 '새로 얻은 재료'(progress_note)를 집어낸다.
+    2) 같은 목표를 이어가는 중이면, 직전 plan 단계 중 이제 더 필요 없어진 것을
+       '완료한 단계'(completed_steps)로 가려내고 누적(goal_completed)한다.
+    3) 현재 plan에서 결정론으로 '다음 한 단계'(next_step)를 고른다.
+    responder가 이들로 진행을 칭찬하고 다음 행동을 콕 집어 안내한다.
     """
-    prior = {i["item"]: i["count"] for i in state.get("prior_last_inventory", [])}
-    if not prior:
-        return {}
-    current = {i["item"]: i["count"] for i in state.get("inventory", [])}
-    gained = [
-        {"item": item, "count": count - prior.get(item, 0)}
-        for item, count in current.items()
-        if count > prior.get(item, 0)
+    out: dict = {}
+
+    # 1) 인벤토리 델타 — 새로 얻은 재료
+    prior_inv = {i["item"]: i["count"] for i in state.get("prior_last_inventory", [])}
+    if prior_inv:
+        current = {i["item"]: i["count"] for i in state.get("inventory", [])}
+        gained = [
+            {"item": item, "count": count - prior_inv.get(item, 0)}
+            for item, count in current.items()
+            if count > prior_inv.get(item, 0)
+        ]
+        if gained:
+            out["progress_note"] = gained
+
+    goal = state.get("goal_key")
+    plan = state.get("material_plan") or {}
+    if not goal or not plan:
+        return out  # 제작 목표가 없으면(생존·탐험 등) 단계 추적은 생략
+
+    # 2) 목표 진행 — 직전 plan 대비 완료 단계 (같은 목표를 이어갈 때만)
+    completed = list(state.get("prior_completed", [])) if state.get("prior_goal_key") == goal else []
+    cur_needs = {g["item"] for g in plan.get("gather", [])}
+    newly_done = [
+        step["item"] for step in state.get("prior_plan", [])
+        if state.get("prior_goal_key") == goal and step["item"] not in cur_needs and step["item"] not in completed
     ]
-    return {"progress_note": gained} if gained else {}
+    for item in newly_done:
+        completed.append(item)
+    if newly_done:
+        out["completed_steps"] = newly_done
+    out["goal_completed"] = completed
+
+    # 3) 다음 한 단계
+    nxt = planner.next_action(plan)
+    if nxt:
+        out["next_step"] = nxt
+    return out
 
 
 def persist_state(state: AgentState) -> dict:
-    """이번 턴의 목표·인벤토리를 저장한다(없으면 직전 값 유지)."""
+    """이번 턴의 목표·인벤토리·plan·완료 단계를 저장한다(없으면 직전 값 유지)."""
     thread_id = state.get("thread_id")
     if not thread_id:
         return {}
     # 게임 모드면 현재 인벤토리를 저장, 웹이면 직전 값을 유지(웹은 인벤토리 없음).
     last_inventory = state["inventory"] if state.get("inventory_connected") else state.get("prior_last_inventory", [])
+    # 제작 목표가 있으면 이번 plan 단계를 저장, 없으면(되묻기·비제작) 직전 plan을 유지.
+    if state.get("goal_key"):
+        plan = [{"item": g["item"], "qty": g["qty"]}
+                for g in (state.get("material_plan") or {}).get("gather", [])]
+    else:
+        plan = state.get("prior_plan", [])
     snapshot = {
         "goal_key": state.get("goal_key") or state.get("prior_goal_key", ""),
         "last_inventory": last_inventory,
+        "plan": plan,
+        "completed": state.get("goal_completed", state.get("prior_completed", [])),
     }
     try:
         with SessionLocal() as db:

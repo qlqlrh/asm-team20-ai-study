@@ -26,7 +26,12 @@ class AgentState(TypedDict):
     recipe: dict                    # 제작 목표의 3×3 격자(output·count·grid). shaped 목표 있을 때만
     prior_goal_key: str             # 직전 턴의 목표 item id (load_state가 로드)
     prior_last_inventory: list[dict]  # 직전 턴 종료 시 인벤토리 (진행 비교용)
+    prior_plan: list[dict]          # 직전 턴의 plan 단계([{item, qty}]). load_state가 로드
+    prior_completed: list[str]      # 현재 목표에서 누적 완료한 단계 item id. load_state가 로드
     progress_note: list[dict]       # 직전 턴 이후 새로 얻은 재료 (reconcile 산출)
+    completed_steps: list[str]      # 이번 턴에 새로 완료된 plan 단계 item id (reconcile 산출)
+    goal_completed: list[str]       # 현재 목표 누적 완료 단계(직전+이번). persist_state가 저장
+    next_step: dict                 # 결정론으로 고른 다음 한 단계 (reconcile 산출)
     todos: list[str]                # 게임 할 일 목록용 짧은 명령형 TODO (게임 모드에서만 생성)
 
 class QueryAnalysis(BaseModel):
