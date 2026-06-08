@@ -47,3 +47,14 @@ def test_재료_충분하면_바로_제작_안내():
     gap = check_materials({"query": "철 곡괭이 만들래", "inventory": inv})["material_plan"]
     block = format_material_plan_block("minecraft:iron_pickaxe", gap)
     assert "바로 제작" in block
+
+
+def test_제작_목표면_3x3_격자를_싣는다():
+    out = check_materials({"query": "철 곡괭이 만들고 싶어", "inventory": []})
+    recipe = out["recipe"]
+    assert recipe["output"] == "minecraft:iron_pickaxe"
+    assert len(recipe["grid"]) == 9
+    # 철 곡괭이: 윗줄 철 주괴 3, 가운데/아랫줄 가운데 막대기
+    assert recipe["grid"][:3] == ["minecraft:iron_ingot"] * 3
+    assert recipe["grid"][4] == "minecraft:stick"
+    assert recipe["grid"][7] == "minecraft:stick"

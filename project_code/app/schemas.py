@@ -23,6 +23,7 @@ class AgentState(TypedDict):
     goal_proposed: bool             # 막연한 질문에 코치가 목표를 제안했는지 (responder 프레이밍용)
     goal_key: str                   # 해석된 제작 목표 item id (없으면 "")
     material_plan: dict             # plan_materials 결과(부족 자원·채굴 티어). 제작 목표 있을 때만
+    recipe: dict                    # 제작 목표의 3×3 격자(output·count·grid). shaped 목표 있을 때만
     prior_goal_key: str             # 직전 턴의 목표 item id (load_state가 로드)
     prior_last_inventory: list[dict]  # 직전 턴 종료 시 인벤토리 (진행 비교용)
     progress_note: list[dict]       # 직전 턴 이후 새로 얻은 재료 (reconcile 산출)
@@ -102,12 +103,23 @@ class ChatRequest(BaseModel):
     # 인게임 상태(시간·체력·좌표 등). 모드만 전송, 웹은 None.
     game_state: GameState | None = None
 
+class RecipeGrid(BaseModel):
+    """제작법 3×3 격자 — 모드 GUI가 아이콘으로 렌더링한다.
+
+    grid는 9칸(행 우선, 좌상단 정렬)으로 각 칸은 아이템 ID 또는 빈 칸(null).
+    """
+    output: str                                          # 결과물 item id
+    count: int = 1                                       # 결과 개수
+    grid: list[str | None] = Field(default_factory=list)  # 9칸(item_id|null)
+
+
 class ChatResponse(BaseModel):
     answer: str
     domain: str = ""
     sources: list[str] = Field(default_factory=list)
     disclaimer: str = ""
     todos: list[str] = Field(default_factory=list)  # 게임 할 일 목록용 짧은 TODO (웹은 빈 배열)
+    recipe: RecipeGrid | None = None                # 제작법 격자 (제작 목표가 있을 때만, 없으면 null)
 
 class StreamEvent(BaseModel):
     event: str = "message"
