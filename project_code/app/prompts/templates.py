@@ -188,6 +188,34 @@ def format_progress_block(progress_note: list[dict]) -> str:
 _TIER_PICKAXE = {1: "돌", 2: "철", 3: "다이아몬드"}
 
 
+def format_goal_progress_block(completed_steps: list[str], next_step: dict) -> str:
+    """목표 진행(완료 단계·다음 한 단계)을 프롬프트용 블록으로 변환한다. 둘 다 없으면 빈 문자열.
+
+    reconcile가 직전 plan과 현재 상태를 견줘 산출한다. 코치가 진행을 칭찬하고
+    다음 행동을 콕 집어 안내하도록 한다.
+    """
+    completed_steps = completed_steps or []
+    next_step = next_step or {}
+    if not completed_steps and not next_step:
+        return ""
+    lines = []
+    if completed_steps:
+        names = ", ".join(item_ko(i) for i in completed_steps)
+        lines.append(f"방금 완료: {names} 준비 끝. 진행을 짧게 칭찬하세요.")
+    if next_step:
+        if next_step.get("kind") == "craft":
+            lines.append("다음 단계: 재료가 모두 준비됐으니 목표를 바로 제작하도록 안내하세요.")
+        else:
+            name = item_ko(next_step.get("item", ""))
+            qty = next_step.get("qty", 0)
+            line = f"다음 단계: {name} {qty}개 모으기"
+            if next_step.get("blocked"):
+                pick = _TIER_PICKAXE.get(next_step.get("mining_tier"), "더 좋은")
+                line += f" (먼저 {pick} 곡괭이부터 마련)"
+            lines.append(line + "를 콕 집어 안내하세요.")
+    return "[목표 진행]\n" + "\n".join(lines) + "\n\n"
+
+
 def format_material_plan_block(target_id: str, material_plan: dict) -> str:
     """결정론 플래너(plan_materials) 결과를 프롬프트용 블록으로 변환한다.
 
