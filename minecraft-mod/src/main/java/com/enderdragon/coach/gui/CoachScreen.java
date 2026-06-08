@@ -42,12 +42,16 @@ public class CoachScreen extends Screen {
     private int maxScroll = 0;
     private boolean stickToBottom = true;
 
+    // 최근 응답에 담겨 온 제작법 격자(있으면 제목 아래에 패널로 렌더). 없으면 숨김.
+    private final RecipeGridWidget recipeWidget = new RecipeGridWidget();
+
     public CoachScreen() {
         super(Text.literal("마크 코치"));
     }
 
     private int historyTop() {
-        return MARGIN + 14;
+        // 제작법 패널이 있으면 그만큼 대화 기록을 아래로 민다.
+        return MARGIN + 14 + recipeWidget.panelHeight();
     }
 
     private int historyBottom() {
@@ -81,6 +85,10 @@ public class CoachScreen extends Screen {
 
         // 제목
         context.drawText(this.textRenderer, this.title, MARGIN, MARGIN, 0xFFFFFFFF, false);
+
+        // 제작법 격자 패널(있을 때만) — 제목과 대화 기록 사이
+        recipeWidget.render(context, this.textRenderer, MARGIN, MARGIN + 14,
+                this.width - MARGIN * 2, mouseX, mouseY);
 
         int top = historyTop();
         int bottom = historyBottom();
@@ -162,6 +170,10 @@ public class CoachScreen extends Screen {
                             } else {
                                 TodoList.parseAndAdd(answer);
                             }
+                        }
+                        // 제작법 격자: 제작 목표가 있으면 패널로 렌더(없으면 직전 격자 유지하지 않고 숨김)
+                        if (response.hasRecipe()) {
+                            recipeWidget.set(response.recipe);
                         }
                         pending.text = answer.isBlank() ? "(빈 응답) 다시 물어봐 주세요." : answer;
                     }
