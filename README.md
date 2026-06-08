@@ -70,15 +70,16 @@ cd minecraft-mod && ./gradlew runClient
 
 ## 🧭 아키텍처랑 에이전트 흐름
 
+### 아키텍처
+
 웹뷰와 Fabric 모드가 FastAPI를 거쳐 LangGraph로 들어가고, 그 뒤에 MySQL(세션·진척도), Qdrant(RAG), 결정론 지식(레시피·확정 사실), 마크 위키 API(웹검색 폴백), Upstage Solar(LLM·임베딩)가 붙습니다.
 
 <p align="center">
   <img src="docs/img/아키텍처.png" alt="시스템 아키텍처" width="860">
 </p>
 
-에이전트는 **11노드 LangGraph 워크플로우**입니다.
 
-`load_state → analyze → resolve_goal → clarify →(ask) → retrieve → web_search → check_materials → reconcile → respond → persist_state`
+### 에이전틱 워크플로우
 
 <table align="center">
   <tr>
