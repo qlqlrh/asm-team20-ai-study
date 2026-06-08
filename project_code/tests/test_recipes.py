@@ -43,3 +43,26 @@ def test_없는_아이템은_빈_목록이다():
     assert recipes.craft_recipes("minecraft:not_a_real_item") == []
     assert recipes.is_craftable("minecraft:iron_pickaxe")
     assert not recipes.is_craftable("minecraft:not_a_real_item")
+
+
+def test_격자는_pattern을_좌상단_정렬로_9칸에_배치한다():
+    grid = recipes.recipe_grid("minecraft:iron_pickaxe")
+    assert grid["output"] == "minecraft:iron_pickaxe"
+    assert grid["count"] == 1
+    assert grid["grid"] == [
+        "minecraft:iron_ingot", "minecraft:iron_ingot", "minecraft:iron_ingot",
+        None, "minecraft:stick", None,
+        None, "minecraft:stick", None,
+    ]
+
+
+def test_격자의_태그칸은_대표_아이템으로_채운다():
+    # 화로: 8칸 stone_crafting_materials 태그 → 대표 조약돌, 가운데만 빈 칸
+    grid = recipes.recipe_grid("minecraft:furnace")["grid"]
+    assert grid[4] is None
+    assert all(c == "minecraft:cobblestone" for i, c in enumerate(grid) if i != 4)
+
+
+def test_shaped가_아니면_격자는_None():
+    assert recipes.recipe_grid("minecraft:raw_iron") is None         # 채굴로만 얻음(제작 불가)
+    assert recipes.recipe_grid("minecraft:not_a_real_item") is None

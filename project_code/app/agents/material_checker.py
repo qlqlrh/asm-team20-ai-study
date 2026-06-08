@@ -9,7 +9,7 @@ responder가 이를 프롬프트에 주입해 검증된 수치로 안내한다.
 import logging
 
 from app.schemas import AgentState
-from app.knowledge import planner
+from app.knowledge import planner, recipes
 from app.knowledge.goal_resolver import resolve_craft_target
 
 logger = logging.getLogger(__name__)
@@ -23,4 +23,9 @@ def check_materials(state: AgentState) -> dict:
     material_plan = planner.plan_materials(target, state.get("inventory", []))
     logger.info("CHECK_MATERIALS: target=%s ready=%s gather=%d",
                 target, material_plan["ready"], len(material_plan["gather"]))
-    return {"goal_key": target, "material_plan": material_plan}
+    out = {"goal_key": target, "material_plan": material_plan}
+    # 제작법 격자(3×3 배치) — 모드 GUI가 아이콘으로 렌더링. shaped 레시피만 존재.
+    grid = recipes.recipe_grid(target)
+    if grid:
+        out["recipe"] = grid
+    return out

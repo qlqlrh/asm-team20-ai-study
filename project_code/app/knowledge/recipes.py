@@ -46,3 +46,28 @@ def is_tag(token: str) -> bool:
 def block_mining_level(block_id: str) -> int:
     """블록 채굴에 필요한 최소 곡괭이 레벨(0=나무·금 곡괭이로 가능)."""
     return MINING.get(block_id, 0)
+
+
+def recipe_grid(item_id: str) -> dict | None:
+    """shaped 제작법을 3×3(9칸) 격자로 정규화해 반환한다(없으면 None).
+
+    `pattern`(행 문자열)과 `key`(심볼→재료)를 좌상단 정렬로 9칸 리스트에 배치한다.
+    각 칸은 구체 아이템 ID 또는 None(빈 칸). 태그 재료는 대표 구체 아이템(key의 item)으로
+    렌더링한다(모드는 태그를 그릴 수 없음). shaped가 아니면(배치 의미 없음) None.
+
+    반환: {"output": item_id, "count": 결과 개수, "grid": [9칸의 item_id|None]}
+    """
+    shaped = SHAPED.get(item_id)
+    if not shaped:
+        return None
+    r = shaped[0]  # 대표 레시피(파일명=결과물명)가 앞에 온다
+    key = r.get("key", {})
+    grid: list[str | None] = [None] * 9
+    for row_i, row in enumerate(r.get("pattern", [])[:3]):
+        for col_i, ch in enumerate(row[:3]):
+            if ch == " ":
+                continue
+            cell = key.get(ch)
+            if cell:
+                grid[row_i * 3 + col_i] = cell.get("item")
+    return {"output": item_id, "count": r.get("result_count", 1), "grid": grid}
