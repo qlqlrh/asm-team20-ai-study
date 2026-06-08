@@ -157,26 +157,39 @@ public class CoachScreen extends Screen {
                 : Collections.emptyList();
         GameStateSnapshot.GameState gameState = GameStateSnapshot.capture(mc);
 
-        CoachApiClient.chat(message, inv, gameState).whenComplete((response, error) ->
-                MinecraftClient.getInstance().execute(() -> {
-                    if (error != null) {
-                        pending.text = "(오류) " + describe(error);
-                    } else {
-                        String answer = response.answerOrEmpty();
-                        if (!answer.isBlank()) {
-                            // 할 일 목록: 백엔드가 만든 짧은 todos 우선, 없으면 answer 파싱으로 폴백
-                            if (response.hasTodos()) {
-                                TodoList.addAll(response.todos);
-                            } else {
-                                TodoList.parseAndAdd(answer);
-                            }
-                        }
-                        // 제작법 격자: 제작 목표가 있으면 패널로 렌더(없으면 직전 격자 유지하지 않고 숨김)
-                        if (response.hasRecipe()) {
-                            recipeWidget.set(response.recipe);
-                        }
-                        pending.text = answer.isBlank() ? "(빈 응답) 다시 물어봐 주세요." : answer;
+        // 토큰을 누적해 점진적으로 표시한다. 첫 토큰이 오면 "물어보는 중…" 자리표시를 지운다.
+        StringBuilder streamed = new StringBuilder();
+        CoachApiClient.chatStream(message, inv, gameState,
+                // onToken — 도착할 때마다 누적 텍스트를 갱신
+                token -> MinecraftClient.getInstance().execute(() -> {
+                    streamed.append(token);
+                    pending.text = streamed.toString();
+                    stickToBottom = true;
+                }),
+                // onComplete — 최종 답변·할 일·제작법 격자 반영
+                response -> MinecraftClient.getInstance().execute(() -> {
+                    String answer = response.answerOrEmpty();
+                    if (answer.isBlank()) {
+                        answer = streamed.length() > 0 ? streamed.toString() : "(빈 응답) 다시 물어봐 주세요.";
                     }
+                    pending.text = answer;
+                    if (!answer.isBlank()) {
+                        // 할 일 목록: 백엔드가 만든 짧은 todos 우선, 없으면 answer 파싱으로 폴백
+                        if (response.hasTodos()) {
+                            TodoList.addAll(response.todos);
+                        } else {
+                            TodoList.parseAndAdd(answer);
+                        }
+                    }
+                    // 제작법 격자: 제작 목표가 있으면 패널로 렌더
+                    if (response.hasRecipe()) {
+                        recipeWidget.set(response.recipe);
+                    }
+                    stickToBottom = true;
+                }),
+                // onError
+                error -> MinecraftClient.getInstance().execute(() -> {
+                    pending.text = "(오류) " + describe(error);
                     stickToBottom = true;
                 }));
     }
