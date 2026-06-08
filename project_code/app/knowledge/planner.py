@@ -118,6 +118,25 @@ def plan_materials(target_id: str, inventory: dict[str, int] | list[dict], qty: 
     }
 
 
+def next_action(plan: dict) -> dict | None:
+    """플랜에서 지금 할 '다음 한 단계'를 결정론적으로 고른다(없으면 None).
+
+    - 재료가 다 갖춰졌으면(ready) 제작 단계.
+    - 아니면 아직 모을 재료 중 '지금 캘 수 있는'(막히지 않은) 것을 우선, 그 안에서 채굴
+      티어가 낮은(맨손에 가까운) 기초 재료부터.
+    - 전부 막혀 있으면 막힌 재료 중 티어가 가장 낮은 것(먼저 곡괭이를 마련해야 하는 선행 단계).
+    """
+    if plan.get("ready"):
+        return {"kind": "craft"}
+    gather = plan.get("gather", [])
+    if not gather:
+        return None
+    actionable = [g for g in gather if not g.get("blocked")]
+    pool = actionable or gather
+    nxt = min(pool, key=lambda g: (g.get("mining_tier") or 0))
+    return {"kind": "gather", **nxt}
+
+
 def _normalize_inventory(inventory: dict[str, int] | list[dict]) -> dict[str, int]:
     if isinstance(inventory, dict):
         return dict(inventory)
