@@ -86,6 +86,8 @@ async def chat_stream(request: ChatRequest):
         domain = ""
         sources: list[str] = []
         is_clarification = False
+        todos: list[str] = []
+        recipe = None
 
         try:
             async for event in graph.astream_events(
@@ -95,22 +97,28 @@ async def chat_stream(request: ChatRequest):
                 name = event.get("name", "")
 
                 # 노드 완료 → 진행 상황 이벤트 전송
-                if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "respond", "ask"):
+                if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "web_search", "check_materials", "respond", "ask"):
                     output = event.get("data", {}).get("output", {})
 
                     if name == "analyze":
                         domain = output.get("domain", "")
                     elif name == "clarify":
                         is_clarification = bool(output.get("need_clarification", False))
-                    elif name == "retrieve":
-                        results = output.get("search_results", [])
-                        sources = list({
-                            r.get("metadata", {}).get("title", "")
-                            for r in results
-                            if r.get("metadata", {}).get("title")
-                        })
+                    elif name in ("retrieve", "web_search"):
+                        # web_search는 보강했을 때만 search_results를 갱신한다(스킵 시 빈 출력).
+                        results = output.get("search_results")
+                        if results:
+                            sources = list({
+                                r.get("metadata", {}).get("title", "")
+                                for r in results
+                                if r.get("metadata", {}).get("title")
+                            })
+                    elif name == "check_materials":
+                        recipe = output.get("recipe") or recipe  # 제작법 격자(있을 때만)
                     elif name in ("respond", "ask"):
                         final_answer = output.get("final_answer", final_answer)
+                        if output.get("todos"):
+                            todos = output["todos"]
 
                     yield f"data: {StreamEvent(event='node', node=name, data=json.dumps(output, ensure_ascii=False, default=str)).model_dump_json()}\n\n"
 
@@ -128,8 +136,9 @@ async def chat_stream(request: ChatRequest):
                 final_answer = "죄송해요, 답변을 생성하는 중 문제가 생겼어요. 잠시 후 다시 시도해 주세요."
 
         _save_turn(request.thread_id, request.message, final_answer, is_clarification=is_clarification)
-        done_payload = {"answer": final_answer, "domain": domain, "sources": sources}
-        yield f"data: {StreamEvent(event='done', data=json.dumps(done_payload, ensure_ascii=False)).model_dump_json()}\n\n"
+        # 모드가 스트리밍에서도 할 일·제작법 격자를 받도록 done에 함께 싣는다.
+        done_payload = {"answer": final_answer, "domain": domain, "sources": sources, "todos": todos, "recipe": recipe}
+        yield f"data: {StreamEvent(event='done', data=json.dumps(done_payload, ensure_ascii=False, default=str)).model_dump_json()}\n\n"
 
     return StreamingResponse(gen(), media_type="text/event-stream")
 

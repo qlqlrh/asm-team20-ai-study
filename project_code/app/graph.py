@@ -1,9 +1,10 @@
 # ========================================
 # Minecraft Guide Agent - LangGraph workflow
-# load_state -> analyze -> resolve_goal -> clarify -> retrieve -> check_materials -> reconcile -> respond -> persist_state
+# load_state -> analyze -> resolve_goal -> clarify -> retrieve -> web_search -> check_materials -> reconcile -> respond -> persist_state
 # load_state      : 직전 턴 진척도(목표·인벤토리) 로드
 # resolve_goal    : 목표 클래스 분류 + 막연한 질문이면 상태 근거로 다음 목표 제안
 # clarify         : 정보 부족 시 되묻기, 충분하면 통과
+# web_search      : 위키 커버리지 부족 시에만 웹검색으로 근거 보강(키 없으면 스킵)
 # check_materials : 제작 목표가 있으면 결정론으로 부족 자원·채굴 티어 계산
 # reconcile       : 직전 인벤토리와 비교해 새로 얻은 재료(진행) 인식
 # persist_state   : 이번 턴 진척도 저장 (모든 종료 경로 공통)
@@ -15,6 +16,7 @@ from app.agents.goal_resolver import resolve_goal
 from app.agents.retrieval import retrieve_context
 from app.agents.responder import generate_answer
 from app.agents.clarifier import check_and_clarify
+from app.agents.web_searcher import search_web
 from app.agents.material_checker import check_materials
 from app.agents.session_memory import load_state, reconcile, persist_state
 
@@ -40,6 +42,7 @@ def create_graph():
     builder.add_node("clarify", check_and_clarify)
     builder.add_node("ask", ask_clarification)
     builder.add_node("retrieve", retrieve_context)
+    builder.add_node("web_search", search_web)
     builder.add_node("check_materials", check_materials)
     builder.add_node("reconcile", reconcile)
     builder.add_node("respond", generate_answer)
@@ -57,7 +60,8 @@ def create_graph():
         route_by_clarification,
         {"ask": "ask", "retrieve": "retrieve"},
     )
-    builder.add_edge("retrieve", "check_materials")
+    builder.add_edge("retrieve", "web_search")
+    builder.add_edge("web_search", "check_materials")
     builder.add_edge("check_materials", "reconcile")
     builder.add_edge("reconcile", "respond")
     # 모든 종료 경로는 persist_state를 거쳐 진척도를 저장한다.
