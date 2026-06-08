@@ -60,35 +60,36 @@ cd minecraft-mod && ./gradlew runClient
 
 ## 🛠️ [어떻게 만들었나](docs/기술_문서.md)
 
-- **에이전트 흐름** — 사용자 질문은 LangGraph를 따라 `분석 → 되묻기 → 검색 → 답변` 순으로 흐릅니다(현재 5노드).
-- **검색(RAG)** — 답변 근거는 마인크래프트 위키에서 검색해 가져옵니다(Qdrant + Upstage 임베딩).
-- **환각 방지** — 채굴 티어나 레시피처럼 틀리면 안 되는 건 "확정 사실"로 박아놔서 LLM이 지어내지 못하게 막았어요. 실제로 #7에서 겪었던 문제라 이렇게 풀었습니다.
-- **저장** — 대화 기록은 MySQL에 저장하고, 스키마는 Alembic으로 관리합니다.
-- **게임 연동** — 게임 모드는 인벤토리를 읽어 같이 넘기고, 받은 답변을 할 일 목록 HUD로 보여줍니다.
+- **에이전트 흐름** — 질문은 LangGraph **11노드**를 따라 `상태 로드 → 분석 → 목표 해석 → 되묻기 → 검색 → 웹검색 폴백 → 재료 점검 → 진행 인식 → 답변 → 저장` 순으로 흐릅니다.
+- **결정론 제작 엔진** — "철 주괴 3개" 같은 수치·3×3 배치는 LLM 추측이 아니라 게임에서 추출한 레시피로 계산합니다(부족 재료·채굴 티어까지).
+- **검색(RAG) + 웹검색** — 답변 근거는 마인크래프트 위키에서 가져오고(Qdrant), 부족하면 **키 없이 라이브 위키 API**로 보강합니다.
+- **환각 방지** — 채굴 티어나 레시피처럼 틀리면 안 되는 건 "확정 사실"로 박아놔서 LLM이 지어내지 못하게 막았어요(#7).
+- **멀티턴 기억** — 직전 계획 대비 무엇을 끝냈고 이제 무엇을 할 차례인지 턴을 넘어 기억합니다(MySQL `coaching_state`).
+- **게임 연동** — 모드는 인벤토리·게임 상태(시간·체력)를 같이 넘기고, 답변은 **토큰 단위로 흐르듯** 표시되며 3×3 제작법 격자·할 일 HUD로 보여줍니다.
 
 더 자세한 내용(아키텍처, API, 이슈별 작업 내역)은 [기술 문서](docs/기술_문서.md)에 정리해뒀습니다.
 
 ## 🧭 아키텍처랑 에이전트 흐름
 
-웹뷰와 Fabric 모드가 FastAPI를 거쳐 LangGraph로 들어가고, 그 뒤에 MySQL(세션), Qdrant(RAG), LLM/Vision API가 붙습니다.
+웹뷰와 Fabric 모드가 FastAPI를 거쳐 LangGraph로 들어가고, 그 뒤에 MySQL(세션·진척도), Qdrant(RAG), 결정론 지식(레시피), Upstage Solar(LLM)가 붙습니다.
 
 <p align="center">
   <img src="docs/img/01-시스템-아키텍처.png" alt="시스템 아키텍처" width="720">
 </p>
 
-에이전트는 목표를 분석하고 현재 상태를 모은 다음, 정보가 충분한지 따져보고 상태를 해석합니다.
+에이전트는 직전 진척도를 불러와 질문을 분석하고, 목표를 해석한 뒤 정보가 충분한지 따져봅니다.
 
 <p align="center">
   <img src="docs/img/02-에이전트-흐름-전반부.png" alt="에이전트 흐름 전반부" width="600">
 </p>
 
-그다음 선행조건과 부족한 자원을 계산해서 하위 목표와 실행 계획을 세우고, 실행이 가능한지 확인한 뒤 코칭 답변을 내고 상태를 저장합니다.
+그다음 위키·웹에서 근거를 찾고, 제작 목표면 부족 재료를 결정론으로 계산하고, 직전 계획 대비 진행을 인식한 뒤 코칭 답변을 내고 상태를 저장합니다.
 
 <p align="center">
   <img src="docs/img/03-에이전트-흐름-후반부.png" alt="에이전트 흐름 후반부" width="480">
 </p>
 
-참고로 위 11노드는 처음에 잡았던 최종 목표고, 지금 실제로 돌아가는 건 5노드(`analyze → clarify →(ask) → retrieve → respond`)입니다. 차이는 [기술 문서](docs/기술_문서.md)에 적어뒀어요.
+현재 실제 워크플로우는 **11노드**(`load_state → analyze → resolve_goal → clarify →(ask) → retrieve → web_search → check_materials → reconcile → respond → persist_state`)입니다. 자세한 내용은 [기술 문서](docs/기술_문서.md)에 정리했어요.
 
 ---
 
@@ -114,10 +115,10 @@ asm-team20-ai-study/
 │
 ├── project_code/         백엔드(FastAPI·LangGraph) + 검증용 웹뷰
 │   ├── app/
-│   │   ├── agents/         LangGraph 노드 (분석·되묻기·검색·답변)
-│   │   ├── knowledge/      환각 방지용 확정 사실 (채굴 티어·레시피)
+│   │   ├── agents/         LangGraph 노드 (분석·목표해석·되묻기·검색·웹검색·재료점검·진행인식·답변·진척도)
+│   │   ├── knowledge/      결정론 지식 (추출 레시피 recipes.json·플래너·확정 사실)
 │   │   ├── core/           설정·DB·임베딩·LLM 연결
-│   │   └── ...             graph·api·models·repositories 등
+│   │   └── ...             graph·api·models·repositories·web_search 등
 │   ├── frontend/          Streamlit 웹뷰
 │   ├── scripts/           위키 → Qdrant 적재
 │   └── alembic/ · tests/  마이그레이션 · 테스트
