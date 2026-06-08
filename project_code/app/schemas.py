@@ -18,6 +18,9 @@ class AgentState(TypedDict):
     inventory: list[dict]           # 마크 Mod에서 전달한 인벤토리 (웹은 항상 [])
     inventory_connected: bool       # 인벤토리 연동 클라이언트(게임 모드) 여부 (웹은 False)
     game_state: dict                # 인게임 상태(시간·체력·좌표 등). 모드만 전달, 없으면 {}
+    goal_class: str                 # 목표 클래스(craft|survival|explore|vague). resolve_goal 산출
+    resolved_goal: str              # 해석·제안된 목표 문장(한국어). resolve_goal 산출
+    goal_proposed: bool             # 막연한 질문에 코치가 목표를 제안했는지 (responder 프레이밍용)
     goal_key: str                   # 해석된 제작 목표 item id (없으면 "")
     material_plan: dict             # plan_materials 결과(부족 자원·채굴 티어). 제작 목표 있을 때만
     prior_goal_key: str             # 직전 턴의 목표 item id (load_state가 로드)
@@ -30,6 +33,18 @@ class QueryAnalysis(BaseModel):
     domain: Literal["minecraft","general","out_of_scope"] = Field(description="domain")
     intent: str = Field(description="intent")
     status: Literal["success","insufficient"] = Field(description="status")
+
+class GoalResolution(BaseModel):
+    """resolve_goal 노드의 구조화 출력 — 목표 클래스 분류 + (막연하면) 목표 제안."""
+    goal_class: Literal["craft", "survival", "explore", "vague"] = Field(
+        description="목표 성격: 제작/모으기=craft, 생존·안전·회복=survival, 탐험·이동=explore, 막연=vague"
+    )
+    goal_text: str = Field(default="", description="해석하거나 제안한 목표를 담은 한 문장(한국어)")
+    proposed: bool = Field(
+        default=False,
+        description="사용자가 목표를 안 밝혀 상태를 근거로 코치가 제안한 경우 true",
+    )
+
 
 class ClarificationResult(BaseModel):
     need_clarification: bool = Field(description="추가 정보가 필요하면 true, 바로 답변 가능하면 false")

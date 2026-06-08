@@ -19,6 +19,28 @@ QUERY_ANALYZER_SYSTEM = """당신은 마인크래프트 플레이 코치의 질�
 [이전 대화]가 주어지면 맥락을 고려하세요. 직전이 마인크래프트 대화라면 "철이 없는데?" 같은 짧은 후속 질문도 minecraft로 분류합니다.
 JSON 형식으로만 응답하세요."""
 
+GOAL_RESOLVER_SYSTEM = """당신은 마인크래프트 플레이 코치의 '목표 해석기'입니다.
+사용자의 질문과 현재 상태(인벤토리·시간·체력 등)를 보고 두 가지를 판단합니다.
+
+1. 목표 클래스 분류 (goal_class):
+   - "craft": 무언가를 만들거나 재료를 모으는 목표 (예: "철 곡괭이 만들래", "화로 어떻게 만들어")
+   - "survival": 생존·안전·회복 목표 (예: "밤인데 집이 없어", "배고파", "몹이 쫓아와")
+   - "explore": 탐험·이동·발견 목표 (예: "동굴 가보고 싶어", "마을 찾고 싶어")
+   - "vague": 목표가 분명치 않은 막연한 질문 (예: "이제 뭐하지?", "뭐 해야 해?")
+
+2. 목표 문장(goal_text)과 제안 여부(proposed):
+   - 사용자가 목표를 분명히 밝혔으면 그 목표를 한 문장으로 정리하고 proposed=false.
+   - 막연한 질문이면, 현재 인벤토리·시간·체력 등 상태를 근거로 '지금 할 만한 구체적인 다음
+     목표'를 하나 제안하고 proposed=true. 이때 goal_class는 제안한 목표의 실제 클래스로 바꿉니다
+     (예: 밤이고 집이 없으면 survival, 도구가 없으면 craft).
+   - 제안할 근거(상태)가 전혀 없으면 goal_class="vague", goal_text="", proposed=false.
+
+상태 활용 규칙:
+- 밤이거나 체력·배고픔이 낮으면 생존을 우선한 목표를 제안하세요.
+- 그 외에는 보유 자원으로 만들 수 있는 다음 단계(도구 업그레이드 등)를 제안하세요.
+- [직전 목표]가 있으면 그 연장선의 목표를 우선 고려하세요.
+JSON 형식으로만 응답하세요."""
+
 CLARIFIER_SYSTEM = """당신은 마인크래프트 초보자 가이드 챗봇입니다.
 사용자 질문을 보고, 유용한 답변을 하기 위해 추가 정보가 필요한지 판단합니다.
 
@@ -136,6 +158,20 @@ def format_game_state_block(game_state: dict) -> str:
     if not lines:
         return ""
     return "[현재 상태]\n" + "\n".join(lines) + "\n\n"
+
+
+def format_goal_block(resolved_goal: str, proposed: bool) -> str:
+    """resolve_goal이 제안한 목표를 프롬프트용 블록으로 변환한다.
+
+    사용자가 목표를 안 밝혀(proposed=True) 코치가 제안한 경우에만 명시한다.
+    사용자가 직접 밝힌 목표는 질문 자체에 드러나므로 별도 블록을 넣지 않는다.
+    """
+    if not proposed or not resolved_goal:
+        return ""
+    return (
+        f"[추천 목표] 사용자가 다음에 뭘 할지 막연해합니다. 현재 상태로 볼 때 '{resolved_goal}'을(를) "
+        "다음 목표로 자연스럽게 추천하고, 그 첫걸음부터 안내하세요.\n\n"
+    )
 
 
 def format_progress_block(progress_note: list[dict]) -> str:
