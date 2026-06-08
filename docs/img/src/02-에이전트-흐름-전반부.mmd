@@ -1,0 +1,27 @@
+flowchart TB
+  classDef normal fill:#dce8fb,stroke:#9bbef0,color:#1e3a5f,font-size:15px
+  classDef branch fill:#fbf0d9,stroke:#e0b54d,color:#7a5c12,font-size:15px
+  classDef exception fill:#f8e0e0,stroke:#dd9b9b,color:#8a3b3b,font-size:15px
+  classDef handoff fill:#f5f5f5,stroke:#cccccc,color:#555,font-size:14px
+
+  subgraph L[" "]
+    direction LR
+    LG1(분기 판단):::branch
+    LG2(예외 · 종료 경로):::exception
+  end
+
+  LS("① 직전 진척도 로드<br><b>load_state</b>"):::normal
+  AN("② 질문 분석 · 도메인 분류<br><b>analyze</b>"):::normal
+  RG("③ 목표 해석 · 막연형 제안<br><b>resolve_goal</b>"):::normal
+  CL("④ 정보 충분 여부<br><b>clarify</b>"):::branch
+  ASK("되묻기 · 추가 질문<br><b>ask</b> → 종료"):::exception
+  GEN("일반 · 범위 밖 응답<br><b>respond</b> → 종료"):::exception
+  NEXT("재료 점검 · 응답 단계로 이어짐 (후반부)"):::handoff
+
+  LS --> AN
+  AN -->|"general · out_of_scope"| GEN
+  AN -->|minecraft| RG
+  RG --> CL
+  CL -->|부족| ASK
+  CL -->|충분| NEXT
+  style L fill:#ffffff,stroke:#e5e7eb,stroke-dasharray:4 3

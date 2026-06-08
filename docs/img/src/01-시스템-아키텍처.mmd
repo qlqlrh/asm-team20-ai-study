@@ -1,0 +1,35 @@
+flowchart LR
+  classDef client fill:#ede9fe,stroke:#a78bfa,color:#4c1d95,font-size:15px
+  classDef be fill:#fde6da,stroke:#f08a5d,color:#7c2d12,font-size:15px
+  classDef data fill:#dbeafe,stroke:#60a5fa,color:#1e3a8a,font-size:15px
+
+  subgraph C[클라이언트]
+    direction TB
+    MOD("🎮 Fabric Mod<br><b>인게임 · 메인</b>"):::client
+    WEB("💬 웹 챗봇<br>Streamlit · 검증용"):::client
+  end
+  subgraph B[백엔드]
+    direction TB
+    API("⚡ FastAPI<br>API · SSE"):::be
+    LG("🔀 LangGraph<br>11노드 · Agentic"):::be
+  end
+  subgraph D[데이터 · 외부]
+    direction TB
+    SQL("🗄️ MySQL<br>세션 · 진척도"):::data
+    QD("🧩 Qdrant<br>Vector · RAG"):::data
+    KN("📚 knowledge<br>결정론 레시피 · 확정 사실"):::data
+    WK("🌐 마크 위키 API<br>키 없는 웹검색 폴백"):::data
+    LLM("✨ Upstage Solar<br>LLM · 임베딩"):::data
+  end
+
+  MOD --> API
+  WEB --> API
+  API --> LG
+  LG --> SQL
+  LG --> QD
+  LG --> KN
+  LG --> WK
+  LG --> LLM
+  style C fill:#fcfcfd,stroke:#d8dde3,stroke-dasharray:4 3
+  style B fill:#fcfcfd,stroke:#d8dde3,stroke-dasharray:4 3
+  style D fill:#fcfcfd,stroke:#d8dde3,stroke-dasharray:4 3
