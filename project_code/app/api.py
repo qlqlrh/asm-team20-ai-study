@@ -95,20 +95,22 @@ async def chat_stream(request: ChatRequest):
                 name = event.get("name", "")
 
                 # 노드 완료 → 진행 상황 이벤트 전송
-                if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "respond", "ask"):
+                if kind == "on_chain_end" and name in ("analyze", "clarify", "retrieve", "web_search", "respond", "ask"):
                     output = event.get("data", {}).get("output", {})
 
                     if name == "analyze":
                         domain = output.get("domain", "")
                     elif name == "clarify":
                         is_clarification = bool(output.get("need_clarification", False))
-                    elif name == "retrieve":
-                        results = output.get("search_results", [])
-                        sources = list({
-                            r.get("metadata", {}).get("title", "")
-                            for r in results
-                            if r.get("metadata", {}).get("title")
-                        })
+                    elif name in ("retrieve", "web_search"):
+                        # web_search는 보강했을 때만 search_results를 갱신한다(스킵 시 빈 출력).
+                        results = output.get("search_results")
+                        if results:
+                            sources = list({
+                                r.get("metadata", {}).get("title", "")
+                                for r in results
+                                if r.get("metadata", {}).get("title")
+                            })
                     elif name in ("respond", "ask"):
                         final_answer = output.get("final_answer", final_answer)
 
